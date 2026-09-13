@@ -1,0 +1,13 @@
+# Weights, states and any large artifact: nothing large enters git.
+*.npz
+*.safetensors
+*.pt
+*.gguf
+*.jsonl
+results/**/bridges*
+results/**/*.log
+data/**/*.json
+.venv/
+__pycache__/
+*.egg-info/
+.DS_Store
