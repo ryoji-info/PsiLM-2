@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "psilm2"
+version = "0.1.0"
+description = "Two frozen partners on one frozen backbone: the physics bridge and the constitution bridge"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+# psilm supplies the bridges, the staged forward and the two single-channel
+# models this package composes. It is not on PyPI: install it from a checkout,
+#   pip install -e ../PsiLM
+# which also brings mlx, mlx-lm and transformers at the versions it pins.
+dependencies = []
+
+[tool.setuptools]
+packages = ["psilm2"]

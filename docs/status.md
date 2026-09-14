@@ -4,16 +4,38 @@ Last updated 2026-09-13. Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM); none of it was produced by code in
 this repository yet.
 
-## Does not exist
+## Implemented, not trained (2026-09-15)
 
-**The combined stack.** A backbone carrying the physics bridge and the
-constitution bridge at the same time has never been built or trained. The two
-bridges below were trained independently, against different objectives, and
-inject at different layers. Composing them raises questions none of the
-existing runs answer — whether two gates interact, whether the two injections
-compete for the same coordinates, whether the no-harm arm that keeps each one
-honest still works when the other is open. This repository is named for that
-stack; it is the work ahead, not work done.
+**The composition exists as code and has never been trained.** `psilm2.dual`
+runs both channels in one pass; nine assertions on a tiny CPU stack pin down that
+it reduces exactly to each single-channel model when the other channel is off,
+and that the two channels really do share a residual stream — the physics gate
+moves when the constitution writes below it, and the physics bridge receives
+gradient from the constitution's objective, which contains no physics targets.
+See [self-test.md](self-test.md).
+
+What that does *not* settle is everything a run would:
+
+- **The training schedule.** The physics objective is a five-term supervised loss
+  and the constitution objective is cross-entropy to a prompted teacher; they
+  have different data, batch shapes and natural learning rates. `loss_physics`,
+  `loss_constitution` and `loss_noharm` are the three arms a joint trainer would
+  schedule. The schedule is not written, and picking it is a research decision,
+  not a coding one.
+- **Whether the gates stay selective when both are open.** Each channel's
+  no-harm arm was trained against a stream the other never touched. The joint
+  `loss_noharm` penalises the sum of the open gates, which is the obvious
+  generalisation and not a validated one.
+- **Whether the two injections interfere.** On Qwen3.5 the constitution writes
+  into 41 of 4096 dimensions at layer 24 and the physics channel writes the whole
+  stream at 26, so the physics write passes straight over the constitution's
+  coordinates. Nothing yet says what that does to either signal.
+- **`load_dual_stack` has not been run.** It composes two loaders that are each
+  exercised in ΨLM, but the composition has only been read. The GPU was committed
+  to the 9B width campaign when it was written.
+
+The value of the code as it stands is that it makes those four questions
+answerable by a run rather than by an argument.
 
 ## Measured
 

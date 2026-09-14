@@ -48,12 +48,35 @@ Two findings from ΨLM qualify that choice, and both are load-bearing here:
 So the value neurons are a defensible place to write into, on probe evidence,
 and not because zeroing them breaks the model.
 
+## The code
+
+`psilm2.dual.PsiDualMLX` runs both channels in one forward pass, reading and
+injecting at each channel's own depth. It subclasses `psilm.mlx.model.PsiLMMLX`
+and overrides only the coupling step, so the physics loss, the no-harm arm and
+the physics generate path are inherited rather than copied — there is no second
+version of them to drift.
+
+The channels share a residual stream, so whichever writes lower changes what the
+other's gate and attention see. That interaction is the point of the composition
+and the module is built to expose it rather than absorb it. `PsiDualMLX` takes a
+per-channel arm — `psilm` writes, `zeroed` builds the tokens and measures the
+gate without writing, `off` does not touch the bridge — which is what makes the
+interaction measurable from either side.
+
+`python -m psilm2.dual_self_test` proves nine properties on a tiny random stack
+on the CPU, in a few seconds and with no weights. Three of them are bit-identity
+with the models ΨLM already trains, so that any difference in a dual run is the
+other channel's presence and not a different code path; one of them demands that
+the physics gate **does** move when the constitution opens below it. See
+[docs/self-test.md](docs/self-test.md).
+
 ## Status
 
-Nothing in this repository is a finished result. The two bridges exist and are
-trained **separately**; the combined stack that this repository is named for has
-not been built yet. [docs/status.md](docs/status.md) records exactly what is
-measured, what is running, and what does not exist.
+**No trained dual stack exists yet.** The composition is implemented and
+verified; it has never been trained, and `load_dual_stack` has not been run
+against the real 9B checkpoints. What each channel does on its own is measured,
+and measured results are what [docs/status.md](docs/status.md) records — read it
+before treating anything here as an outcome.
 
 ## Related
 
