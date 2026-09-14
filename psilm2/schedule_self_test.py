@@ -8,6 +8,8 @@ push the OTHER channel's gate DOWN. If it did not, the penalty would be decorati
 and the two gates would have no reason to stay out of each other's way.
 """
 
+import json
+
 import mlx.core as mx
 import mlx.nn as nn
 
@@ -172,6 +174,36 @@ def self_test(verbose=True):
     assert gates, "a gate-only phase moved no gate parameters at all"
     say(f"8. gate-only phase  moved {len(gates)} gate tensors and 0 of "
         f"{len(before)-len(gates)} others, bit-identical")
+
+    # 9. CHUNKED RESUME. Every chunk is a fresh process that re-warm-starts both
+    #    channels from their trained checkpoints, so without a resume step three
+    #    chunks of 200 are three independent 200-step runs and the final artifact
+    #    holds 200 while the log claims 600. That is what chunking is for, so it
+    #    gets an assertion: the step count must be cumulative and the weights must
+    #    continue rather than reset.
+    R = build_tiny_dual(write_idx=[1, 7, 13], seed=7)
+    rp = R["dual"]
+    rp.set_modes(physics="psilm", constitution="psilm")
+    d = pathlib.Path(tempfile.mkdtemp())
+    ph = Phase("coexist", 3, 3e-4, True, 1.0, 1.0)
+    run_phase(rp, ph, sources, out_dir=d, verbose=False, save_every=3)
+    m1 = json.loads((d / "bridges.safetensors.meta").read_text())["step"]
+    g1 = mx.array(rp.cphi.inject.g2.bias)
+    mx.eval(g1)
+    run_phase(rp, ph, sources, out_dir=d, verbose=False, save_every=3)
+    m2 = json.loads((d / "bridges.safetensors.meta").read_text())["step"]
+    assert (m1, m2) == (3, 6), f"step count not cumulative across chunks: {m1} then {m2}"
+    # and a fresh model resuming from that checkpoint must land on those weights,
+    # not on the warm-start ones
+    F = build_tiny_dual(write_idx=[1, 7, 13], seed=7)["dual"]
+    F.set_modes(physics="psilm", constitution="psilm")
+    fresh = mx.array(F.cphi.inject.g2.bias); mx.eval(fresh)
+    from .train_dual import resume as do_resume
+    got = do_resume(F, d)
+    after = mx.array(F.cphi.inject.g2.bias); mx.eval(after)
+    assert got == 6, f"resume reported step {got}, expected 6"
+    assert not bool(mx.all(fresh == after).item()), "resume did not change the weights"
+    say(f"9. chunked resume   step count cumulative ({m1} -> {m2}) and weights continue")
 
     say("\nall schedule assertions passed")
     return True

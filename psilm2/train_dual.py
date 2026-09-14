@@ -144,10 +144,22 @@ def run_phase(psi, phase: Phase, sources, *, out_dir: Path, lr=None, clip="modul
                   f"({'gate-only: injections' if phase.gate_only else 'full: reads'})")
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    done = resume(psi, out_dir)
+    resume_note = (f"[resume] continuing from step {done} in "
+                   f"{out_dir}/bridges.safetensors") if done else \
+                  "[resume] no prior checkpoint: starting from the warm-started bridges"
+    if verbose:
+        print(resume_note, flush=True)
+    # the optimizer state is NOT carried across chunks: mlx writes no optimizer
+    # state here, so Adam restarts its moments each chunk. At 200 steps per chunk
+    # and a gate-only phase that is a small cost, and it is stated rather than
+    # hidden -- a chunked run is not bit-identical to one long run.
     log = (out_dir / "supervisor.log").open("a")
+    log.write(resume_note + "\n"); log.flush()
     run = {}
     t0 = time.time()
-    for step in range(1, phase.steps + 1):
+    for local in range(1, phase.steps + 1):
+        step = done + local
         task, batch = sch.next()
         (loss, stats), grads = mx.value_and_grad(
             lambda p: loss_for(p, task, batch))(params)
@@ -172,18 +184,53 @@ def run_phase(psi, phase: Phase, sources, *, out_dir: Path, lr=None, clip="modul
             if isinstance(v, mx.array):
                 rec[k] = round(float(v.item()), 5)
         run.setdefault(task, []).append(rec)
-        if verbose and step % log_every == 0:
-            line = (f"[{phase.name}] step {step}/{phase.steps} "
+        if verbose and local % log_every == 0:
+            line = (f"[{phase.name}] step {step} (chunk {local}/{phase.steps}) "
                     + " | ".join(f"{t}: loss {run[t][-1]['loss']:.4f} "
                                  f"gp {run[t][-1].get('gate_'+PHYS, float('nan')):.4f} "
                                  f"gc {run[t][-1].get('gate_'+CONST, float('nan')):.4f}"
                                  for t in run)
                     + f" | {(time.time()-t0)/step:.2f}s/step")
-            print(line); log.write(line + "\n"); log.flush()
-        if step % save_every == 0 or step == phase.steps:
+            print(line, flush=True); log.write(line + "\n"); log.flush()
+        if local % save_every == 0 or local == phase.steps:
             save(psi, out_dir, step, phase)
     log.close()
     return step, run
+
+
+def resume(psi, out_dir: Path) -> int:
+    """Load a previous chunk's weights over the warm-started bridges.
+
+    Without this every chunk restarts from the trained single-channel checkpoints,
+    so three chunks of 200 would be three independent 200-step runs and the final
+    artifact would hold 200 steps while the log claimed 600. The chunking exists to
+    survive a Metal watchdog kill, which it only does if the next chunk continues
+    where the last one stopped.
+
+    Returns the step already reached, so the log continues the count rather than
+    restarting it.
+    """
+    ck = out_dir / "bridges.safetensors"
+    meta_p = Path(str(ck) + ".meta")
+    if not ck.is_file() or not meta_p.is_file():
+        return 0
+    from mlx.utils import tree_unflatten
+    meta = json.loads(meta_p.read_text())
+    flat = mx.load(str(ck))
+    for prefix, present, mod in ((PHYS, psi.has_phys, psi.phi),
+                                 (CONST, psi.has_const, psi.cphi)):
+        sub = [(k[len(prefix) + 1:], v) for k, v in flat.items()
+               if k.startswith(prefix + ".")]
+        if not sub:
+            if present:
+                raise ValueError(f"{ck}: no '{prefix}.' weights, but that channel is active")
+            continue
+        if not present:
+            raise ValueError(f"{ck}: holds '{prefix}.' weights for an inactive channel")
+        mod.update(tree_unflatten(sub))
+    mx.eval(psi.phi.parameters() if psi.has_phys else [],
+            psi.cphi.parameters() if psi.has_const else [])
+    return int(meta.get("step", 0))
 
 
 def save(psi, out_dir: Path, step: int, phase: Phase):
