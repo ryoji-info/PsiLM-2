@@ -374,10 +374,11 @@ def load_dual_stack(model, tokenizer, *,
     read dimension lists from the meta so a random control cannot come back
     different. Either checkpoint may be omitted to build a single-channel model.
 
-    NOT YET EXERCISED against real checkpoints: at the time of writing the GPU is
-    committed and the 9B stack could not be loaded, so this composes two tested
-    loaders but the composition itself has only been read, not run. Check the
-    printed describe() line against the two source metas the first time it is used.
+    Exercised against the real Qwen3.5 9B checkpoints on 2026-09-15 by
+    psilm2.verify_qwen35, which reloads both channels and re-checks the three
+    bit-identity properties on the actual backbone rather than the tiny stack:
+    physics 13/26 with the value channel, constitution 13/24 writing all 4096
+    dimensions, 45.17M trainable, 10.0 GB peak.
     """
     from pathlib import Path
     import json

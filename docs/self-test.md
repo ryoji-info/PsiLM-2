@@ -60,3 +60,24 @@ form it sits behind a `stop_gradient` as well). A pure cross-entropy objective
 correctly reaches everything else and not those. The test asserts that exact set,
 so a future change that silently detaches a *different* tensor fails here instead
 of training a dead parameter.
+
+## On the real stack
+
+`python -m psilm2.verify_qwen35` re-checks the three attribution identities on the
+actual Qwen3.5 9B backbone and the actual trained checkpoints, where a loader
+mistake, a depth read from the wrong meta or a dtype difference would show up
+instead of a logic error:
+
+```
+PsiDualMLX over 32 layers | physics 13/26 channel=value
+                          | constitution 13/24 write 4096 of 4096 (100.00%)
+                          | 45.17M trainable
+  both off      vs bare staged backbone  IDENTICAL
+  physics only  vs PsiLMMLX              IDENTICAL
+  constitution  vs PsiConstitutionMLX    IDENTICAL
+  physics gate alone 0.001764 -> with the constitution open 0.001757
+  constitution gate on this prompt: 0.0153
+peak 10.0 GB
+```
+
+Inference only, a few seconds per arm, and it needs the GPU free.

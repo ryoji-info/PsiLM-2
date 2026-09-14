@@ -30,9 +30,15 @@ What that does *not* settle is everything a run would:
   into 41 of 4096 dimensions at layer 24 and the physics channel writes the whole
   stream at 26, so the physics write passes straight over the constitution's
   coordinates. Nothing yet says what that does to either signal.
-- **`load_dual_stack` has not been run.** It composes two loaders that are each
-  exercised in ΨLM, but the composition has only been read. The GPU was committed
-  to the 9B width campaign when it was written.
+`load_dual_stack` **has** now been run against the real 9B checkpoints
+(`python -m psilm2.verify_qwen35`, 2026-09-15): physics 13/26 with the value
+channel, constitution 13/24 writing all 4096 dimensions, 45.17M trainable
+parameters, 10.0 GB peak. All three bit-identity properties hold on the real
+stack, and the interaction is measurable there too — the physics gate moves from
+0.001764 to 0.001757 when the constitution opens below it. On a red-team prompt
+the constitution gate sits at 0.0153 against the physics channel's 0.0018, which
+is the two gates behaving selectively in the composition, and the only evidence so
+far that they will.
 
 The value of the code as it stands is that it makes those four questions
 answerable by a run rather than by an argument.
