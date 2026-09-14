@@ -362,7 +362,8 @@ def dual_meta(psi: PsiDualMLX, step: int, extra: Optional[Dict[str, Any]] = None
 def load_dual_stack(model, tokenizer, *,
                     phys_ckpt=None, fno_path="results/stage2/fno.pt",
                     const_ckpt=None, const_model_path=None,
-                    l_rev_phys=None, l_rev_const=None, lam_gate: float = 1.0):
+                    l_rev_phys=None, l_rev_const=None, lam_gate: float = 1.0,
+                    trainable: bool = False):
     """Assemble a PsiDualMLX from the two channels' trained checkpoints.
 
     Both halves are read exactly the way PsiLM's own evaluators read them -- the
@@ -373,6 +374,15 @@ def load_dual_stack(model, tokenizer, *,
     psilm.mlx.constitution.load_constitution_stack, which resolves the write and
     read dimension lists from the meta so a random control cannot come back
     different. Either checkpoint may be omitted to build a single-channel model.
+
+    `trainable` controls whether the bridges come back ready to train.
+    psilm.mlx.constitution.load_constitution_stack calls bridges.freeze() -- correct
+    for the evaluators it was written for, and silently wrong for a trainer: a frozen
+    module's trainable_parameters() is empty, so an optimizer over it is a no-op and
+    the channel trains for zero steps while every log line still prints a gate value
+    that varies by batch. That is exactly what happened on 2026-09-15 before this
+    flag existed. Pass trainable=True to train; the default stays False so the
+    evaluation paths keep the semantics they were built with.
 
     Exercised against the real Qwen3.5 9B checkpoints on 2026-09-15 by
     psilm2.verify_qwen35, which reloads both channels and re-checks the three
@@ -423,4 +433,17 @@ def load_dual_stack(model, tokenizer, *,
     # ordering rule; a pair that does not is a configuration error, and _plan()
     # would otherwise only discover it on the first forward pass.
     psi._plan()
+    if trainable:
+        for present, mod in ((psi.has_phys, psi.phi), (psi.has_const, psi.cphi)):
+            if present:
+                mod.unfreeze()
+        # tree_flatten, not truthiness: a frozen module's trainable_parameters()
+        # is a nested dict of empty dicts, which is truthy with zero tensors in it.
+        from mlx.utils import tree_flatten as _tf
+        empty = [name for name, present, mod in ((PHYS, psi.has_phys, psi.phi),
+                                                 (CONST, psi.has_const, psi.cphi))
+                 if present and not _tf(mod.trainable_parameters())]
+        if empty:
+            raise ValueError(f"trainable=True but {empty} still have no trainable "
+                             f"parameters after unfreeze()")
     return psi

@@ -113,6 +113,19 @@ def run_phase(psi, phase: Phase, sources, *, out_dir: Path, lr=None, clip="modul
     """One phase. Returns the step count reached and the last stats."""
     sch = DualSchedule(phase, sources)
     rate = lr if lr is not None else phase.lr
+    # Every active channel must actually be trainable. A frozen bridge yields an
+    # empty trainable_parameters(), which makes the optimizer a silent no-op while
+    # the logs keep printing plausible gate values -- the failure this guard exists
+    # for, met on 2026-09-15.
+    # Count LEAVES, not truthiness: a frozen module's trainable_parameters() is a
+    # nested dict of empty dicts -- {'fwd': {'key': {}, ...}, ...} -- which is
+    # truthy while holding zero tensors, so `if not params` misses it entirely.
+    for name, present, mod in ((PHYS, psi.has_phys, psi.phi),
+                               (CONST, psi.has_const, psi.cphi)):
+        if present and not tree_flatten(mod.trainable_parameters()):
+            raise ValueError(
+                f"channel {name!r} is active but has no trainable parameters "
+                f"(frozen?). load_dual_stack(..., trainable=True) unfreezes both.")
     # One optimizer PER CHANNEL: mlx keeps a single state tree per optimizer, and
     # the two bridges have different shapes, so a shared optimizer raises
     # KeyError on the second channel's update.
@@ -125,8 +138,6 @@ def run_phase(psi, phase: Phase, sources, *, out_dir: Path, lr=None, clip="modul
     make_opt = (lambda: optim.Adam(learning_rate=rate)) if phase.gate_only else \
                (lambda: optim.AdamW(learning_rate=rate))
     opts = {PHYS: make_opt(), CONST: make_opt()}
-    params = {PHYS: psi.phi.trainable_parameters() if psi.has_phys else {},
-              CONST: psi.cphi.trainable_parameters() if psi.has_const else {}}
 
     def loss_for(p, task, batch):
         if psi.has_phys:
@@ -145,6 +156,11 @@ def run_phase(psi, phase: Phase, sources, *, out_dir: Path, lr=None, clip="modul
 
     out_dir.mkdir(parents=True, exist_ok=True)
     done = resume(psi, out_dir)
+    # AFTER resume, never before: loss_for writes these back into the modules on
+    # every step, so params captured before the resume would overwrite the loaded
+    # weights on step 1 and the chunk would replay the previous one exactly.
+    params = {PHYS: psi.phi.trainable_parameters() if psi.has_phys else {},
+              CONST: psi.cphi.trainable_parameters() if psi.has_const else {}}
     resume_note = (f"[resume] continuing from step {done} in "
                    f"{out_dir}/bridges.safetensors") if done else \
                   "[resume] no prior checkpoint: starting from the warm-started bridges"
@@ -298,7 +314,7 @@ def main():
         model, _stock, tok = load_backbone_any(a.model)
         psi = load_dual_stack(model, tok, phys_ckpt=a.phys_ckpt, fno_path=a.fno,
                               const_ckpt=a.const_ckpt, const_model_path=a.const_model,
-                              lam_gate=phase.lam_gate)
+                              lam_gate=phase.lam_gate, trainable=True)
         psi.set_modes(physics="psilm", constitution="psilm")
         hf = AutoTokenizer.from_pretrained(a.model)
         pad = hf.pad_token_id or hf.eos_token_id

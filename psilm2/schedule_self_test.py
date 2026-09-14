@@ -205,6 +205,40 @@ def self_test(verbose=True):
     assert not bool(mx.all(fresh == after).item()), "resume did not change the weights"
     say(f"9. chunked resume   step count cumulative ({m1} -> {m2}) and weights continue")
 
+    # 10. THE REPLAY TEST. Bug B was: run_phase captured `params` before resume(),
+    #     and loss_for writes them back every step, so step 1 overwrote the loaded
+    #     weights and the chunk reproduced the previous one exactly -- same seed,
+    #     same batches, same starting point. Cumulative step counts and a direct
+    #     resume() call both looked fine, which is why this needs its own assertion:
+    #     two consecutive chunks must NOT trace the same trajectory.
+    Q = build_tiny_dual(write_idx=[1, 7, 13], seed=8)
+    qp = Q["dual"]
+    qp.set_modes(physics="psilm", constitution="psilm")
+    dq = pathlib.Path(tempfile.mkdtemp())
+    phq = Phase("coexist", 4, 3e-3, True, 1.0, 1.0)
+    _, r1 = run_phase(qp, phq, sources, out_dir=dq, verbose=False, save_every=4)
+    _, r2 = run_phase(qp, phq, sources, out_dir=dq, verbose=False, save_every=4)
+    g1s = [r["gate_" + CONST] for r in r1["constitution"]]
+    g2s = [r["gate_" + CONST] for r in r2["constitution"]]
+    assert g1s != g2s, ("two chunks traced an identical constitution-gate trajectory "
+                        f"{g1s} -- the resume was overwritten by stale params")
+    say(f"10. no replay       chunk 2 diverges from chunk 1 ({g1s[0]:.4f} -> {g2s[0]:.4f})")
+
+    # 11. a frozen channel is refused, not silently trained for zero steps. Bug A was
+    #     load_constitution_stack's bridges.freeze(), which made the optimizer a
+    #     no-op while every log line still printed a plausible batch-varying gate.
+    Z = build_tiny_dual(write_idx=[1, 7, 13], seed=9)["dual"]
+    Z.set_modes(physics="psilm", constitution="psilm")
+    Z.cphi.freeze()
+    try:
+        run_phase(Z, Phase("coexist", 1, 3e-4, True, 1.0, 1.0), sources,
+                  out_dir=pathlib.Path(tempfile.mkdtemp()), verbose=False)
+    except ValueError as e:
+        assert "no trainable parameters" in str(e), e
+        say("11. frozen channel  refused with a named error, not trained for zero steps")
+    else:
+        raise AssertionError("a frozen channel was accepted")
+
     say("\nall schedule assertions passed")
     return True
 
