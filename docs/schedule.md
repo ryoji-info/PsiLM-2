@@ -115,7 +115,42 @@ Chunked like every PsiLM trainer: `--steps` per invocation, resuming from its ow
 run. The supervisor loop belongs in a shell script, as it does for the
 single-channel campaigns.
 
-**This has not been run on the 9B.** The schedule is designed, implemented and
-tested on a tiny stack; whether the cross-gate penalty actually holds two gates
-apart on a real backbone is the first thing a run would tell us, and it is not
-something the design can settle by itself.
+## First contact with the 9B (2026-09-15)
+
+Three things the real stack said that the tiny one could not.
+
+**The grad window is the phase-1 saving, measured.** Qwen3.5's GatedDeltaNet layers
+run a Metal kernel with no VJP, so the differentiable ops-path scan must cover
+exactly the layers the backward pass touches. Gate-only needs it from layer **24**
+(the shallowest injection) rather than 13 (the shallowest read), and the result is
+**10.4 s/step at batch 2** against the constitution campaign's 26.7 — 2.6× faster,
+which makes 600 steps about 1h45m rather than five hours.
+
+**The no-harm negatives are in a different schema**, and the schedule reads them in
+their own: `data/noharm_qwen35_all.json` comes from `eval/build_noharm.py` and uses
+`target_ids`, where the constitution data uses `base_ids`. Both campaigns share the
+one file. The source now checks the schema and says what it found if it is wrong.
+
+**And the honest one, which deflates the rationale above.** After six steps the
+gates were already sorted by task:
+
+| batch | physics gate | constitution gate |
+|---|---:|---:|
+| physics | 0.731 | 0.014 |
+| constitution | 0.008 | 0.418 |
+| no-harm | 0.008 | 0.005 |
+
+Fifty-fold separation in both directions, at warm start, before the cross-gate
+penalty could have done much. The premise of this schedule — that neither gate has
+seen the other channel's on-task prompts as negatives — is literally true, but the
+*generalisation* covers it better than the argument assumed: the constitution gate
+was trained to shut on GSM8K and MMLU, and a Burgers question looks enough like
+arithmetic that it shuts on that too. So the cross-gate penalty may be largely
+redundant rather than load-bearing. That is worth stating plainly, because the
+alternative is to run the phase, observe selectivity, and credit the mechanism that
+happened to be switched on.
+
+What the full run can still settle is whether the separation *holds* under
+training, since a joint objective could as easily erode it as preserve it, and
+whether either channel's own held-out metric regresses. The λ_cross = 0 ablation is
+the comparison that would actually attribute it, and it costs the same 1h45m.

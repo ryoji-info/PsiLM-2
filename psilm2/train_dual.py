@@ -33,6 +33,29 @@ from .dual import CONST, PHYS, dual_meta
 from .schedule import (Baselines, DualSchedule, PHASES, Phase, gate_only_grads)
 
 
+def grad_window(psi, phase) -> int:
+    """The shallowest layer the backward pass must reach.
+
+    Qwen3.5's GatedDeltaNet layers run a Metal kernel with no VJP, so the
+    differentiable ops-path scan has to be switched on for exactly the layers the
+    backward pass touches and no more -- it keeps its whole recurrence on the tape,
+    which costs 25.2 GB at batch 2 across all 32 layers against 12.9 GB for the top
+    twelve.
+
+    In a gate-only phase the only trainable parameters are the gate MLPs, which read
+    the stream AT the injection depths, so nothing below the shallowest injection
+    needs a gradient: the window is min(l_rev). In a full phase the forward bridges
+    are trainable too and the window has to reach min(l_fwd). On this backbone that
+    is 24 against 13 -- the concrete form of phase 1 being the cheap one.
+    """
+    lo = []
+    for present, l_fwd, l_rev in ((psi.has_phys, psi.l_fwd, psi.l_rev),
+                                  (psi.has_const, psi.l_fwd_const, psi.l_rev_const)):
+        if present:
+            lo.append(l_rev if phase.gate_only else l_fwd)
+    return min(lo) if lo else psi.n_layers
+
+
 def clip_grad_norm(grads, max_norm):
     leaves = [v for _, v in tree_flatten(grads)]
     total = mx.sqrt(sum((mx.sum(g * g) for g in leaves), mx.array(0.0)))
@@ -49,10 +72,21 @@ def constitution_source(path, pad_id, batch, rng):
 
 
 def noharm_source(path, pad_id, batch, rng):
-    """Off-task prompts (GSM8K/MMLU) with the backbone's OWN continuation."""
+    """Off-task prompts (GSM8K/MMLU) with the backbone's OWN continuation.
+
+    The key is "target_ids", not the constitution data's "base_ids": these
+    negatives come from eval/build_noharm.py, which predates the constitution work
+    and writes {prompt_ids, target_ids, target_text, source}. Both campaigns share
+    this one file, so the schedule reads it in its own schema rather than
+    normalising it.
+    """
     from psilm.mlx.constitution import pad_batch
     items = json.loads(Path(path).read_text())
-    return lambda: pad_batch(rng.sample(items, batch), pad_id, tgt_key="base_ids",
+    missing = [k for k in ("prompt_ids", "target_ids") if k not in items[0]]
+    if missing:
+        raise ValueError(f"{path}: no-harm items lack {missing}; "
+                         f"found {sorted(items[0])}")
+    return lambda: pad_batch(rng.sample(items, batch), pad_id, tgt_key="target_ids",
                              noharm=True)
 
 
@@ -100,6 +134,14 @@ def run_phase(psi, phase: Phase, sources, *, out_dir: Path, lr=None, clip="modul
         if psi.has_const:
             psi.cphi.update(p[CONST])
         return sch.loss(psi, task, batch)
+
+    model = psi.model
+    if getattr(model, "needs_train_mode_for_grad", False):
+        w = grad_window(psi, phase)
+        model.set_grad_window(w)
+        if verbose:
+            print(f"[backbone] differentiable SSM scan from layer {w} up "
+                  f"({'gate-only: injections' if phase.gate_only else 'full: reads'})")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     log = (out_dir / "supervisor.log").open("a")
@@ -165,6 +207,8 @@ def main():
     ap.add_argument("--lam-cross", type=float, default=None)
     ap.add_argument("--out", default="results/dual_qwen35")
     ap.add_argument("--batch", type=int, default=2)
+    ap.add_argument("--log-every", type=int, default=25)
+    ap.add_argument("--save-every", type=int, default=100)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dry-run", action="store_true",
                     help="tiny random stack on the CPU: exercises the loop, touches no GPU")
@@ -220,7 +264,8 @@ def main():
     print(f"phase {phase.name}: {phase.steps} steps, lr {phase.lr}, "
           f"gate_only={phase.gate_only}, lam_cross={phase.lam_cross}, "
           f"lam_gate={phase.lam_gate}, cycle {phase.cycle}")
-    step, run = run_phase(psi, phase, sources, out_dir=out, lr=a.lr)
+    step, run = run_phase(psi, phase, sources, out_dir=out, lr=a.lr,
+                          log_every=a.log_every, save_every=a.save_every)
     print(f"\nphase {phase.name} reached step {step}; wrote {out}/bridges.safetensors")
     for task, rows in run.items():
         g = rows[-1]
