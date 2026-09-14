@@ -16,16 +16,17 @@ See [self-test.md](self-test.md).
 
 What that does *not* settle is everything a run would:
 
-- **The training schedule.** The physics objective is a five-term supervised loss
-  and the constitution objective is cross-entropy to a prompted teacher; they
-  have different data, batch shapes and natural learning rates. `loss_physics`,
-  `loss_constitution` and `loss_noharm` are the three arms a joint trainer would
-  schedule. The schedule is not written, and picking it is a research decision,
-  not a coding one.
-- **Whether the gates stay selective when both are open.** Each channel's
-  no-harm arm was trained against a stream the other never touched. The joint
-  `loss_noharm` penalises the sum of the open gates, which is the obvious
-  generalisation and not a validated one.
+- **The training schedule** is now written — see [schedule.md](schedule.md) —
+  and its one substantive idea is a cross-gate penalty: each task's batches
+  penalise the *other* channel's gate, because neither single-channel run could
+  have trained that. Both campaigns' negatives were GSM8K and MMLU, so neither
+  gate has ever seen the other channel's on-task prompts as something to shut on.
+  Designed, implemented and tested on a tiny stack; **not run on the 9B**.
+- **Whether the gates stay selective when both are open.** This is what the
+  cross-gate penalty is for, and it is the first thing a run would test. The
+  mechanism has authority over the gate — one descent step on the penalty moves it
+  0.364 → 0.036 on the tiny stack — but authority is not the same as the right
+  equilibrium on a real backbone.
 - **Whether the two injections interfere.** On Qwen3.5 the constitution writes
   into 41 of 4096 dimensions at layer 24 and the physics channel writes the whole
   stream at 26, so the physics write passes straight over the constitution's
