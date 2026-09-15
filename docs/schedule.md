@@ -119,20 +119,33 @@ single-channel campaigns.
 
 Three things the real stack said that the tiny one could not.
 
-**The grad window is the phase-1 saving, measured.** Qwen3.5's GatedDeltaNet layers
-run a Metal kernel with no VJP, so the differentiable ops-path scan must cover
-exactly the layers the backward pass touches. Gate-only needs it from layer **24**
-(the shallowest injection) rather than 13 (the shallowest read), and the result is
-**10.4 s/step at batch 2** against the constitution campaign's 26.7 — 2.6× faster,
-which makes 600 steps about 1h45m rather than five hours.
+**The grad window is real; the speedup I first claimed for it was not.** Qwen3.5's
+GatedDeltaNet layers run a Metal kernel with no VJP, so the differentiable ops-path
+scan must cover exactly the layers the backward pass touches, and gate-only needs it
+from layer **24** (the shallowest injection) rather than 13 (the shallowest read).
+That much holds. The "10.4 s/step, 2.6× faster, 600 steps in 1h45m" this document
+first reported does not: **10.4 s/step came from the smoke run, which carried the
+frozen-constitution bug** described below, so it timed a backward pass that reached
+only one bridge. The valid arms ran at **23.1–24.4 s/step** and took **3h52m** and
+**3h57m** for 600 steps — against the constitution campaign's ~25 s/step, a real
+speedup of roughly **1.1×, not 2.6×**.
+
+A second bug made that harder to see. `run_phase` computed `s/step` as this chunk's
+elapsed time divided by the *cumulative* step, so chunk 2 read 2× fast and chunk 3
+3× fast, and a flat 23 s/step run appeared to accelerate to 11.6 and then 7.8. Fixed
+to divide by the chunk-local step. The corrected per-chunk figures are 23.08 / 23.26
+/ 23.37 (λ_cross = 1) and 23.55 / 23.20 / 24.42 (λ_cross = 0).
 
 **The no-harm negatives are in a different schema**, and the schedule reads them in
 their own: `data/noharm_qwen35_all.json` comes from `eval/build_noharm.py` and uses
 `target_ids`, where the constitution data uses `base_ids`. Both campaigns share the
 one file. The source now checks the schema and says what it found if it is wrong.
 
-**And the honest one, which deflates the rationale above.** After six steps the
-gates were already sorted by task:
+**And the honest one, which deflates the rationale above.** After six steps of the
+smoke run the gates were already sorted by task. (That run carried the
+frozen-constitution bug, so its constitution gate is the warm-started one and never
+trained — which is what makes it a clean read of the warm start, and why its
+*timings* above had to be thrown out:)
 
 | batch | physics gate | constitution gate |
 |---|---:|---:|
@@ -153,7 +166,7 @@ happened to be switched on.
 What the full run can still settle is whether the separation *holds* under
 training, since a joint objective could as easily erode it as preserve it, and
 whether either channel's own held-out metric regresses. The λ_cross = 0 ablation is
-the comparison that would actually attribute it, and it costs the same 1h45m.
+the comparison that would actually attribute it, and it costs the same ~3h55m.
 
 ## The result: don't run it (2026-09-15)
 
@@ -163,9 +176,14 @@ numbers the same harnesses produced:
 
 | arm | const CE alone | both open | cost of opening the other channel | verdict |
 |---|---:|---:|---|---|
-| **warm-start, untrained** | **0.3890** | **0.3893** | **+0.0003, 95% [−0.0004, +0.0009]** | **ACCEPTED** |
-| phase 1, λ_cross = 1 | 0.3925 | 0.3924 | −0.0001 | regressed |
-| phase 1, λ_cross = 0 | 0.3956 | 0.3966 | +0.0009 | regressed |
+| **warm-start, untrained** | **0.38905** | **0.38931** | **+0.00027, 95% [−0.00038, +0.00093]** | **ACCEPTED** |
+| phase 1, λ_cross = 1 | 0.39250 | 0.39243 | −0.00007, no interval | regressed |
+| phase 1, λ_cross = 0 | 0.39564 | 0.39658 | +0.00094, no interval | regressed |
+
+Only the warm-start arm carries per-item cross-entropies: `accept.py` gained them
+after the two trained arms were measured. So neither trained arm's composition cost
+has an interval, and neither is claimed to be distinguishable from zero. For scale,
+the warm-start arm's per-item differences have SD 0.0024 and SEM 0.00034.
 
 Physics scored 1.000 accuracy in every arm, at MAE 0.0141–0.0150 against the
 campaign's own 0.0147, and the bare backbone scores 0.000 — so the channel does
@@ -178,8 +196,10 @@ interval that spans zero, and its top-1 agreement (0.8686) is the highest of any
 arm measured. It clears the acceptance test that both trained arms fail.
 
 **Training the composition makes it worse.** The cross-gate penalty did what it was
-designed to do — it drove the constitution gate 43× lower on physics prompts than
-the control did, and cut the composition cost from +0.0009 to −0.0001 — but it paid
+designed to do — it drove the constitution gate 39× lower on physics prompts than
+the control did (0.00022 against 0.00865; the 43× first reported here came from
+reading a 4-decimal log rather than the 5-decimal record), and ~14× lower on
+no-harm prompts — but it paid
 +0.0035 of absolute CE to remove an interference of +0.0003 that was not
 distinguishable from zero to begin with. The control paid +0.0066 and left more
 interference than the untrained stack had. Both are bad trades.
@@ -194,6 +214,15 @@ them; the control is what showed the no-harm arm was not doing that work; and th
 untrained arm is what showed the work did not need doing. The three-arm structure,
 not the schedule, is what produced a usable answer — and the same lesson the 0.5B
 magnitude-matched draws taught, met again at a different level.
+
+**The penalty worked in one direction only.** It tightened the constitution gate as
+intended, and over the same 600 steps the *physics* gate became less selective in
+both arms — on constitution batches 0.0110 → 0.0161 and on no-harm batches 0.0113 →
+0.0292 under the penalty, which is the term the penalty was pushing down. The
+control drifted the same way. Absolute values stay small (0.77 on-task against 0.016
+off-task is still ~48× selective), and these are single-batch snapshots rather than
+averages, but "it did what it was designed to do" is half the story: the gate with
+room to improve improved, and the gate that was already tight eroded.
 
 One caveat on the premise. The argument for a cross-gate penalty was that neither
 gate has seen the other channel's on-task prompts as negatives. That is true, and

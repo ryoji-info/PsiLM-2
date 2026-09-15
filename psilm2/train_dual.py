@@ -38,9 +38,10 @@ def grad_window(psi, phase) -> int:
 
     Qwen3.5's GatedDeltaNet layers run a Metal kernel with no VJP, so the
     differentiable ops-path scan has to be switched on for exactly the layers the
-    backward pass touches and no more -- it keeps its whole recurrence on the tape,
-    which costs 25.2 GB at batch 2 across all 32 layers against 12.9 GB for the top
-    twelve.
+    backward pass touches and no more, because it keeps its whole recurrence on the
+    tape. (psilm/mlx/qwen35_loader.py's own docstring puts that at 25.2 GB across
+    all 32 layers against 12.9 GB for the top twelve, at batch 2; those figures are
+    that docstring's, not measured again here.)
 
     In a gate-only phase the only trainable parameters are the gate MLPs, which read
     the stream AT the injection depths, so nothing below the shallowest injection
@@ -206,7 +207,11 @@ def run_phase(psi, phase: Phase, sources, *, out_dir: Path, lr=None, clip="modul
                                  f"gp {run[t][-1].get('gate_'+PHYS, float('nan')):.4f} "
                                  f"gc {run[t][-1].get('gate_'+CONST, float('nan')):.4f}"
                                  for t in run)
-                    + f" | {(time.time()-t0)/step:.2f}s/step")
+                    # local, not step: t0 is this CHUNK's start, so dividing by the
+                    # cumulative step understates chunk 2 by 2x and chunk 3 by 3x --
+                    # which is exactly how a 23 s/step run came to be reported as
+                    # "speeding up" to 11.6 and then 7.8.
+                    + f" | {(time.time()-t0)/local:.2f}s/step")
             print(line, flush=True); log.write(line + "\n"); log.flush()
         if local % save_every == 0 or local == phase.steps:
             save(psi, out_dir, step, phase)

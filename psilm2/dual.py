@@ -294,16 +294,36 @@ class PsiDualMLX(PsiLMMLX):
             out[CONST] = self.cphi.trainable_parameters()
         return out
 
+    @staticmethod
+    def _count(t) -> int:
+        if isinstance(t, mx.array):
+            return t.size
+        if isinstance(t, dict):
+            return sum(PsiDualMLX._count(v) for v in t.values())
+        if isinstance(t, (list, tuple)):
+            return sum(PsiDualMLX._count(v) for v in t)
+        return 0
+
+    def n_bridge_params(self) -> int:
+        """Every bridge parameter, trainable or not -- the architecture's size."""
+        n = 0
+        if self.has_phys:
+            n += self._count(self.phi.parameters())
+        if self.has_const:
+            n += self._count(self.cphi.parameters())
+        return n
+
     def n_trainable(self) -> int:
-        def count(t):
-            if isinstance(t, mx.array):
-                return t.size
-            if isinstance(t, dict):
-                return sum(count(v) for v in t.values())
-            if isinstance(t, (list, tuple)):
-                return sum(count(v) for v in t)
-            return 0
-        return count(self.trainable_parameters())
+        """What an optimizer would actually move RIGHT NOW.
+
+        Not the same as n_bridge_params: load_constitution_stack freezes its
+        bridge, so under the default load_dual_stack(trainable=False) this returns
+        the physics bridge alone. Reporting it as the model's size is what made
+        "45.17M trainable" appear in three logs and two documents when the stack
+        holds 73.52M -- and that figure is the visible signature of the freeze bug
+        that invalidated the first training run.
+        """
+        return self._count(self.trainable_parameters())
 
     def describe(self) -> str:
         parts = []
@@ -315,8 +335,12 @@ class PsiDualMLX(PsiLMMLX):
             parts.append(f"constitution {self.l_fwd_const}/{self.l_rev_const} "
                          f"write {w} of {self.cphi.d_model} "
                          f"({100.0 * w / self.cphi.d_model:.2f}%)")
+        tr, tot = self.n_trainable(), self.n_bridge_params()
+        size = f"{tot / 1e6:.2f}M bridge parameters"
+        if tr != tot:
+            size += f" ({tr / 1e6:.2f}M currently trainable)"
         return (f"PsiDualMLX over {self.n_layers} layers | " + " | ".join(parts)
-                + f" | {self.n_trainable() / 1e6:.2f}M trainable")
+                + " | " + size)
 
 
 class _NullFrozen:

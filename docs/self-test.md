@@ -38,6 +38,23 @@ with and without the constitution write below it, the two channels would not be
 sharing a residual stream and the whole exercise would be two independent models
 in a trench coat.
 
+The size line reads two numbers on purpose. The stack holds **73.52M** bridge
+parameters — physics 45.18M plus constitution 28.34M — and only 45.17M of them are
+trainable *as loaded*, because `load_constitution_stack` freezes its bridge and the
+verification path does not ask for `trainable=True`. An earlier version of this
+document reported 45.17M as the stack's size, which was the physics bridge alone;
+that number is the visible signature of the freeze bug that invalidated the first
+training run, so `describe()` now prints both and a trainer's own log prints 73.52M.
+
+## The schedule's assertions
+
+`psilm2.schedule_self_test` asserts eleven properties, not the eight this document
+first listed. The three added after the first run failed are the ones that catch its
+bugs: **9** a chunked run's step count is cumulative and its weights continue, **10**
+chunk 2 does not trace chunk 1's trajectory (the replay symptom), and **11** an
+active frozen channel is refused with a named error rather than trained for zero
+steps.
+
 ## The gradient test
 
 Separately, `gradient_test()` checks that both bridges are reachable by an
@@ -71,7 +88,7 @@ instead of a logic error:
 ```
 PsiDualMLX over 32 layers | physics 13/26 channel=value
                           | constitution 13/24 write 4096 of 4096 (100.00%)
-                          | 45.17M trainable
+                          | 73.52M bridge parameters (45.17M currently trainable)
   both off      vs bare staged backbone  IDENTICAL
   physics only  vs PsiLMMLX              IDENTICAL
   constitution  vs PsiConstitutionMLX    IDENTICAL

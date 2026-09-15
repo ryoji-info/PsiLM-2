@@ -35,7 +35,14 @@ model's own continuation will be correct — its "value neurons" — and the bri
 writes only into those, through a frozen boolean mask. At this backbone's layer
 24 the top 1% is 41 of 4096 dimensions.
 
-Two findings from ΨLM qualify that choice, and both are load-bearing here:
+**That is the design; it is not what the trained stack uses.** At 9B the mask turned
+out to buy nothing — every width is harmless because the gate, not the mask, does the
+safety work — while a 41-dimension write changed no behaviour at all. So the
+constitution channel here writes all 4096 dimensions, and the mask survives as the
+mechanism that made the comparison possible rather than as part of the recipe. See
+[docs/status.md](docs/status.md).
+
+Two findings from ΨLM qualify the choice of site, and both are load-bearing here:
 
 - The paper's **causal** claim does not reproduce on this backbone. Zeroing the
   41 value neurons costs 3 GSM8K points at p = 0.375; random draws of the same
@@ -72,11 +79,18 @@ the physics gate **does** move when the constitution opens below it. See
 
 ## Status
 
-**No trained dual stack exists yet.** The composition is implemented and
-verified; it has never been trained, and `load_dual_stack` has not been run
-against the real 9B checkpoints. What each channel does on its own is measured,
-and measured results are what [docs/status.md](docs/status.md) records — read it
-before treating anything here as an outcome.
+**The dual stack is built, verified on the real 9B, and measured in three arms** —
+and the headline result is that the joint training phase is not worth running. The
+two channels compose for free: the untrained warm start costs +0.00027 of
+constitution cross-entropy (95% [−0.00038, +0.00093], spanning zero) against the
+channel's own effect of −0.094, and physics holds 1.000 held-out accuracy with the
+constitution channel open. Both trained arms pay more than that and fail acceptance.
+
+`load_dual_stack` has been run against the real checkpoints; the three bit-identity
+properties hold there as well as on the tiny stack. [docs/status.md](docs/status.md)
+records what is measured and what it does not establish — read it before treating
+anything here as an outcome, and note that the composition was measured on
+cross-entropy and accuracy only, not on refusal behaviour or a guard-rail suite.
 
 ## Related
 

@@ -1,10 +1,10 @@
-# What is measured, what is running, what does not exist
+# What is measured, and what it does not establish
 
-Last updated 2026-09-13. Every number here was produced by the harness in
+Last updated 2026-09-15. Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM); none of it was produced by code in
 this repository yet.
 
-## Implemented, not trained (2026-09-15)
+## Implemented, trained, and measured (2026-09-15)
 
 **The composition exists as code and has never been trained.** `psilm2.dual`
 runs both channels in one pass; nine assertions on a tiny CPU stack pin down that
@@ -36,8 +36,8 @@ What that does *not* settle is everything a run would:
   width campaign found behaviourally inert anyway.
 `load_dual_stack` **has** now been run against the real 9B checkpoints
 (`python -m psilm2.verify_qwen35`, 2026-09-15): physics 13/26 with the value
-channel, constitution 13/24 writing all 4096 dimensions, 45.17M trainable
-parameters, 10.0 GB peak. All three bit-identity properties hold on the real
+channel, constitution 13/24 writing all 4096 dimensions, 73.52M bridge
+parameters (physics 45.18M + constitution 28.34M), 10.0 GB peak at inference. All three bit-identity properties hold on the real
 stack, and the interaction is measurable there too — the physics gate moves from
 0.001764 to 0.001757 when the constitution opens below it. On a red-team prompt
 the constitution gate sits at 0.0153 against the physics channel's 0.0018, which
@@ -98,16 +98,22 @@ Three readings, in order of what they settle:
 Training had converged: a second 500-step chunk moved held-out CE by 0.0004, so
 (3) is a capacity ceiling at 41 coordinates, not undertraining.
 
-## Running
+## Finished since this section was written
 
-Two further write widths on the same backbone and recipe, to separate width from
-location: `all` (the whole 4096-dimension stream) and `vn5` (the top 5%, 205
-dims). Each gets the same two held-out evaluations and a four-dataset guard-rail
-(red-team, GSM8K, MMLU, BoolQ; base / open / zeroed arms; KL to base). At 0.5B
-the full-width write did carry the teacher's behaviour — and cost 8 GSM8K points
-for it, with the same over-refusal on ordinary requests the teacher shows. The
-open question this answers is whether harm is set by the width of the write or
-by which coordinates it lands in; at 0.5B the evidence said width.
+The two further write widths it described as running — `all` (the whole
+4096-dimension stream) and `vn5` (the top 5%, 205 dims) — both completed at 1,000
+steps with their evaluations and four-dataset guard-rails, and their results are in
+the table above and in `results/constitution/summary_qwen35.json` in the ΨLM
+checkout. The `all` checkpoint is the one the dual stack warm-starts its
+constitution channel from.
+
+The question they were run to answer — whether harm is set by the width of the write
+or by which coordinates it lands in — came back: **neither, on this backbone.** No
+width harms anything (the largest movement across three variants and four benchmarks
+is two GSM8K items gained), because the gate learned to be 302× more active on
+red-team prompts than on arithmetic. What width does set is whether the channel
+carries the teacher's *manner* or its *judgment*, and the two arrive together with
+the teacher's over-refusal.
 
 ## The caveat that governs all of it
 
