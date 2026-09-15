@@ -16,21 +16,24 @@ See [self-test.md](self-test.md).
 
 What that does *not* settle is everything a run would:
 
-- **The training schedule** is now written — see [schedule.md](schedule.md) —
-  and its one substantive idea is a cross-gate penalty: each task's batches
-  penalise the *other* channel's gate, because neither single-channel run could
-  have trained that. Both campaigns' negatives were GSM8K and MMLU, so neither
-  gate has ever seen the other channel's on-task prompts as something to shut on.
-  Designed, implemented and tested on a tiny stack; **not run on the 9B**.
-- **Whether the gates stay selective when both are open.** This is what the
-  cross-gate penalty is for, and it is the first thing a run would test. The
-  mechanism has authority over the gate — one descent step on the penalty moves it
-  0.364 → 0.036 on the tiny stack — but authority is not the same as the right
-  equilibrium on a real backbone.
-- **Whether the two injections interfere.** On Qwen3.5 the constitution writes
-  into 41 of 4096 dimensions at layer 24 and the physics channel writes the whole
-  stream at 26, so the physics write passes straight over the constitution's
-  coordinates. Nothing yet says what that does to either signal.
+- **The training schedule** was written, run on the 9B in three arms, and the
+  answer is **don't run it** — see [schedule.md](schedule.md). The untrained
+  composition already costs +0.0003 of constitution CE (95% [−0.0004, +0.0009],
+  spanning zero) and clears acceptance; both trained arms fail it, paying +0.0035
+  and +0.0066 of absolute CE to remove an interference that was at the noise
+  floor. Warm-start both channels and leave the composition alone.
+- ~~Whether the gates stay selective when both are open.~~ **Answered:** they do,
+  without training. At warm start the two trained gates already separate by task
+  about fiftyfold, and the residual interference costs +0.0003 of CE. The
+  cross-penalty improves the separation by a further 43× on physics prompts and
+  that improvement buys nothing measurable.
+- ~~Whether the two injections interfere.~~ **Answered, for this pair:** they do
+  not measurably. The constitution channel here writes all 4096 dimensions at layer
+  24 and the physics channel writes the whole stream at 26, so one write passes
+  straight over the other — and the physics channel still scores 1.000 with the
+  constitution open, while the constitution channel's CE moves by +0.0003. Untested
+  for the narrow (41-dimension) constitution write, which is the variant the 9B
+  width campaign found behaviourally inert anyway.
 `load_dual_stack` **has** now been run against the real 9B checkpoints
 (`python -m psilm2.verify_qwen35`, 2026-09-15): physics 13/26 with the value
 channel, constitution 13/24 writing all 4096 dimensions, 45.17M trainable

@@ -154,3 +154,51 @@ What the full run can still settle is whether the separation *holds* under
 training, since a joint objective could as easily erode it as preserve it, and
 whether either channel's own held-out metric regresses. The λ_cross = 0 ablation is
 the comparison that would actually attribute it, and it costs the same 1h45m.
+
+## The result: don't run it (2026-09-15)
+
+Three arms, each measured by `psilm2.accept` on the same fifty held-out red-team
+items and the same fifty held-out physics items, against the single-channel
+numbers the same harnesses produced:
+
+| arm | const CE alone | both open | cost of opening the other channel | verdict |
+|---|---:|---:|---|---|
+| **warm-start, untrained** | **0.3890** | **0.3893** | **+0.0003, 95% [−0.0004, +0.0009]** | **ACCEPTED** |
+| phase 1, λ_cross = 1 | 0.3925 | 0.3924 | −0.0001 | regressed |
+| phase 1, λ_cross = 0 | 0.3956 | 0.3966 | +0.0009 | regressed |
+
+Physics scored 1.000 accuracy in every arm, at MAE 0.0141–0.0150 against the
+campaign's own 0.0147, and the bare backbone scores 0.000 — so the channel does
+all of that work and none of it is disturbed by the constitution channel being
+open.
+
+**The two channels compose for free without any joint training.** The untrained
+composition costs +0.0003 of constitution cross-entropy, with a paired bootstrap
+interval that spans zero, and its top-1 agreement (0.8686) is the highest of any
+arm measured. It clears the acceptance test that both trained arms fail.
+
+**Training the composition makes it worse.** The cross-gate penalty did what it was
+designed to do — it drove the constitution gate 43× lower on physics prompts than
+the control did, and cut the composition cost from +0.0009 to −0.0001 — but it paid
++0.0035 of absolute CE to remove an interference of +0.0003 that was not
+distinguishable from zero to begin with. The control paid +0.0066 and left more
+interference than the untrained stack had. Both are bad trades.
+
+So the recommendation this document exists to give is: **warm-start both channels
+from their trained checkpoints and do not train the composition.** Phase 0 is the
+whole recipe. The schedule below it is correct, tested and unnecessary.
+
+Why it was worth building anyway: nothing above could be known without it. The
+cross-penalty arm alone would have shown selective gates and been credited for
+them; the control is what showed the no-harm arm was not doing that work; and the
+untrained arm is what showed the work did not need doing. The three-arm structure,
+not the schedule, is what produced a usable answer — and the same lesson the 0.5B
+magnitude-matched draws taught, met again at a different level.
+
+One caveat on the premise. The argument for a cross-gate penalty was that neither
+gate has seen the other channel's on-task prompts as negatives. That is true, and
+the penalty measurably acts on it. What is false is the assumption that it
+mattered: the gates generalise across tasks well enough on their own that the
+residual interference is at the noise floor. A schedule can be well-motivated,
+correctly implemented, effective at its stated mechanism, and still not worth
+running.
