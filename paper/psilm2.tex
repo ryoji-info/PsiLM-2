@@ -1,0 +1,434 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\usepackage{microtype}
+
+\newcommand{\psilm}{$\Psi$LM}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\pending}[1]{\textcolor{red!75!black}{\textbf{[pending: #1]}}}
+%% The companion paper: the physics-partner work this interface comes from.
+\newcommand{\companion}{\citet{furui2026psilm}}
+
+\title{\psilm{}-2: A Constitution Bridge and Dual-Channel Operation\\on a Frozen Language Model}
+
+\author{Ryoji Furui\thanks{\url{https://github.com/ryoji-info/PsiLM-2}. \textbf{AI generation disclosure:} the research reported here was designed, implemented, executed, and written up by \emph{Claude} (Anthropic; the Claude Fable 5, Fable 5.1, and Opus 5 models, as recorded in the repository's commit trailers), working autonomously on the author's Apple M2 laptop under the author's direction; see Section~\ref{sec:disclosure2}.}}
+\date{September 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A frozen language model can be coupled to a frozen partner model through small trainable latent bridges, with no text at the interface: \companion{} builds such a system around a physics partner, where the quantity being carried is a number the partner computes. This paper asks whether the same channel can carry a \emph{disposition} --- and where in a backbone's hidden state it should be written. The partner is a 0.5B model holding Claude's constitution \citep{anthropic2026constitution}; the write site is the ``value neurons'' of \citet{xu2026valueneurons}, a sparse set of residual-stream coordinates that predict state value; the supervision is self-distillation from the same frozen backbone prompted with the document. We report four things. (1) The probe reproduces at both scales but its published causal justification does not: at 0.5B the damage from ablating value neurons tracks activation magnitude, with magnitude-matched controls reproducing 63\% of it, and at 9B the ablation is a flat null. (2) The number of coordinates carrying the probe's value signal is roughly \emph{fixed in absolute terms} across a 4.6$\times$ change in model width --- an AUC knee near 100--200 dimensions at both 896 and 4096 --- so it is a falling \emph{fraction} as models grow. (3) A masked write into those coordinates is safe at 9B and transmits the prompted teacher's manner but not its judgment, while a full-width write moves decisions (red-team refusal $0.660 \to 0.720$, six prompts flipping toward refusal and none away, exact McNemar $p = 0.031$) and imports the teacher's over-refusal with them. That contrast, however, is confounded: the injection cap bounds the write's \emph{per-dimension} magnitude and every arm saturated it, so full width was handed 26$\times$ the total perturbation energy of the value-neuron mask. Per unit of energy actually spent the narrow write did 3.6$\times$ more. At matched energy, \pending{energy-matched 410-dimension arms}. (4) Two bridges of entirely different kinds --- the physics partner and the constitution --- run on one frozen 9B backbone with no joint training and no measurable interference, while training them jointly makes both worse; measured on behaviour, \pending{dual-stack guard-rail}. Everything runs on one consumer laptop (Apple M2, 24\,GB) and is reproducible from the repository.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro2}
+
+The coupling interface this paper uses is not new here. \companion{} couples a frozen language model to a frozen neural operator through two small bridges --- a forward readout that turns hidden states into the partner's input, and a gated cross-attention that writes the partner's answer back into the residual stream --- and shows that a 0.5B backbone which answers Burgers-equation field questions at 5\% answers them at 100\% when the operator is attached, with nothing but hidden states crossing the interface. What crosses there is a number. The bridge has a quantity to carry, a right answer to be scored against, and a partner that computes it.
+
+Values are not like that. There is no field value to read off, no tolerance to score within, and the partner does not compute anything --- it holds a document. The question this paper asks is whether the same channel still works when the payload is a disposition rather than a quantity, and it asks it in the form that matters for alignment at scale: \emph{where} in the hidden state does such a payload have to be written, and \emph{how much} of the hidden state does it have to disturb?
+
+Those two questions turn out to be separable, and separating them is this paper's main technical contribution. The natural site is the sparse set of coordinates that \citet{xu2026valueneurons} identify as predicting state value --- roughly 1\% of the residual stream --- and writing only there is attractive for the obvious reason: a narrow write is a small intervention. We find that the probe locating those coordinates reproduces, that its causal justification does not, that the coordinate count carrying the signal is roughly constant in absolute terms as the model widens, and --- the part that required rereading our own instrumentation --- that the comparison between narrow and wide writes in our first campaign was not a comparison of dimensionality at all. The injection cap bounds per-dimension magnitude, so a narrow mask is also a small \emph{energy budget}, and the wide write won by spending 26 times more of it.
+
+\textbf{Contributions.}
+\begin{itemize}
+\item A constitution bridge: self-distillation from the same frozen backbone prompted with the document, with a masked write confined to chosen residual-stream coordinates, trained on 24\,GB of unified memory (Section~\ref{sec:constbridge}).
+\item A reproduction of the value-neuron probe at two scales, and a refutation of its causal claim on both: magnitude-matched controls, not uniform ones, are what the claim requires (Section~\ref{sec:valueneurons}).
+\item The measurement that the probe's signal occupies a roughly fixed \emph{number} of coordinates rather than a fixed fraction, which is what would make a narrow bridge scale (Section~\ref{sec:valueneurons}).
+\item A separation of write \emph{width} from write \emph{budget}, with the energy accounting that shows the first campaign confounded them, and an energy-matched experiment that tests width proper (Section~\ref{sec:const9b}).
+\item A dual stack: two bridges from unrelated partners on one frozen backbone, composing without joint training (Section~\ref{sec:dual}).
+\item Negative results reported rather than dropped: the partner control, the ablation null, the over-refusal, and one data-pipeline check that fails at 9B (Sections~\ref{sec:const05}--\ref{sec:dual}).
+\end{itemize}
+
+\section{Related Work}
+\label{sec:related2}
+
+\textbf{Value neurons.} \citet{xu2026valueneurons} report that a sparse subset of residual-stream dimensions --- about 1\% --- suffices to predict the value of a reasoning state, and that ablating them damages performance. We reproduce the probe and examine the ablation with controls matched on activation magnitude; Section~\ref{sec:valueneurons} reports what survives.
+
+\textbf{Constitutional AI.} \citet{bai2022cai} train a model to critique and revise its own outputs against a written constitution, with the document entering through prompts during training and leaving no explicit trace at inference. Our setup keeps the document \emph{outside} the model being aligned: it lives in a separate frozen partner, and what reaches the backbone is a latent write from a bridge. The training signal is closer to distillation from a prompted teacher \citep{bai2022hh} than to RLHF, and the constitution text is \citet{anthropic2026constitution}.
+
+\textbf{Coupled frozen models.} The Global Workspace line couples frozen specialists through learned latent workspaces, and the Bicameral Model \citep{flamant2026bicameral} couples two frozen language streams through a gated hidden-state interface; \companion{} extends that to a partner from another modality entirely. This paper keeps the same interface and changes only what is on the other side of it.
+
+\textbf{Activation steering.} Writing a direction into the residual stream to change behaviour is a large literature, and a constitution bridge can be read as a steering vector that is computed per prompt by a partner model rather than fixed in advance, and gated by a learned function of the hidden state rather than applied always-on. Section~\ref{sec:const9b}'s energy accounting is the point of contact: a steering intervention's strength and its support are separate knobs, and conflating them is easy to do.
+
+\section{The Interface, Recapped}
+\label{sec:interface2}
+
+The bridges are the ones \companion{} describes, and this section records only what the constitution experiments need. The backbone is frozen throughout; so is the partner.
+
+A \textbf{forward readout} pools the backbone's hidden states at a read depth $l_{\mathrm{fwd}}$ and emits $m$ tokens in the partner's embedding space. A \textbf{gated cross-attention} at a write depth $l_{\mathrm{rev}} \ge l_{\mathrm{fwd}}$ attends from the backbone's stream to the partner's states and adds the result back:
+\[
+  \Delta h = \sigma(h)\,\mathrm{clip}(\mathrm{inj}(h),\,c)\,s(h),
+  \qquad
+  h \leftarrow h + \Delta h ,
+\]
+where $\sigma(h) \in (0,1)$ is a learned scalar gate, $s(h)$ is the RMS of the receiving hidden state over the written coordinates, and $c$ is the injection cap. Two details matter later and are stated here so that Section~\ref{sec:const9b}'s accounting is checkable. First, the cap bounds the injection's \emph{root-mean-square per written coordinate}, so it is indifferent to how many coordinates are written. Second, the gate and the readout's query read the \emph{whole} stream; only the write is masked.
+
+A \textbf{masked write} restricts $\Delta h$ to a frozen set of coordinates, chosen before training and never updated. The bridge's parameter count does not depend on that set's size --- the mask is a boolean, and the projections are full width --- so width in this paper is never a proxy for capacity.
+
+Supervision is \textbf{self-distillation}. The teacher is the same frozen backbone with the constitution as a system prompt; the student is the backbone with the bridges attached and a plain system prompt; the loss is cross-entropy on the teacher's greedy continuation. A \textbf{no-harm arm} interleaves batches of GSM8K and MMLU on which only the gate is trained, with a penalty on the gate's mean activation, so the channel learns to stay shut where the document has nothing to say.
+\section{Where to write: the value neurons}
+\label{sec:valueneurons}
+
+A channel that writes into a residual stream has to write \emph{somewhere}, and until now the site was chosen by depth alone. \citet{xu2026valueneurons} offer a principled alternative: train a probe on the residual stream to predict whether the model's own continuation will turn out correct, prune it, and a sparse subset of coordinates --- roughly 1\% --- retains the signal. They report causal evidence that these coordinates encode reward-related information. If that holds, it names a place where a normative channel might be legible to the model rather than merely loud.
+
+\textbf{The probe reproduces; its published training recipe does not.} We collected 1,000 GSM8K-train trajectories from the frozen Qwen2.5-0.5B under greedy decoding, storing the residual stream entering blocks 4--20 at every position (5.5\,GB of float16 states, reward rate 0.308; \code{results/value\_neurons/qwen0.5b/collect.log}), and 800 from Qwen3.5 9B at the paper's own sampler (temperature 1.0, top-$p$ 0.95; reward 0.741, 593 correct against 207 incorrect, seven depths, 4.3 hours, 14.4\,GB; \code{qwen35/collect.log}). The probe is theirs: $d \to 1024 \to 1$ with ReLU, AdamW at $10^{-4}$, batch 4 trajectories, split 80/20 by trajectory. Its temporal-difference objective is where the recipe had to bend. With one reward-bearing residual among roughly 230 per trajectory, TD at 30 epochs leaves the value function nearly constant: held-out AUC 0.42--0.53 across the six layers the sweep archived before a Metal fault ended it, below chance on four (\code{qwen0.5b/td30/}). Regressing every state directly on its trajectory's reward --- the fixed point TD converges to as $\gamma \to 1$, reached without the backward propagation TD needs (\code{--target mc}) --- gives 0.61--0.70 at full width on the 0.5B, and the $L_1$-column pruning then keeps 0.628 at nine of 896 dimensions at layer 16 against 0.454, 0.520 and 0.577 for three nine-dimension random subsets retrained identically.
+
+At 9B the signal is far stronger and the \emph{sparsity} is weaker (\code{qwen35/summary.json}):
+
+\begin{table}[t]
+\centering
+\caption{Value-neuron probe on Qwen3.5 9B: held-out AUC from the prompt-final position at full width, after pruning to the top 1\% (41 of 4096 dimensions), and for 41 uniformly random dimensions retrained identically. Layer 24 was chosen by the same rule used throughout --- best AUC after 99\% pruning among the candidate injection depths.}
+\label{tab:vn9b}
+\small
+\begin{tabular}{lrrr}
+\toprule
+layer & full width & top 1\% (41) & random 41 \\
+\midrule
+13 & 0.793 & 0.762 & 0.613 \\
+20 & 0.837 & 0.766 & 0.658 \\
+22 & 0.820 & 0.776 & 0.757 \\
+\textbf{24} & 0.821 & \textbf{0.788} & 0.712 \\
+26 & 0.833 & 0.744 & 0.738 \\
+28 & 0.818 & 0.749 & 0.735 \\
+30 & 0.832 & 0.739 & 0.740 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A bigger, better-trained model carries a far more legible estimate of whether its own continuation will be correct --- 0.79--0.84 against the 0.5B's 0.61--0.70 --- but past layer 22 arbitrary coordinates predict nearly as well as the selected ones, and at layer 30 slightly better. Whatever concentration exists lives in the early-middle layers, which is where \citet{xu2026valueneurons} look. Layer 24 holds the widest gap of the three candidates, $+0.076$, and that gap needs an error bar: with 118 correct and 42 incorrect held-out trajectories the Hanley--McNeil standard error on a single AUC of 0.79 is 0.036, so the gap is about 1.5 conservative standard errors. Suggestive, not established.
+
+\textbf{The causal claim fails twice, in two different ways.} At 0.5B, zeroing the nine value neurons at every position costs 13 GSM8K points (31\% $\to$ 18\%, McNemar $p = 0.029$, $n = 100$ test, greedy, 384 tokens) and the top 45 costs 23 --- the published shape. Three uniform random nine-dimension controls give 26\%, 0\% and 29\%, which looks decisive until the 0\% is examined: that draw contains dimension 62, which carries the attention sink, with mean $|h| = 1{,}551$ at position 0 against an RMS of 0.513 elsewhere, and zeroing it leaves \emph{no item stopping} (end-of-sequence rate 0.0, every generation running to the 384-token cap). A random control that can draw the sink measures the sink. Excluding such dimensions (detected as above 100 in magnitude at position 0 and more than 50$\times$ their level elsewhere; exactly dimension 62 at all ten captured layers) the redraws come back 36\%, 19\% and 32\% --- and the middle one is as damaging as the value neurons themselves, at a smaller $p$ (0.0169 against 0.0294).
+
+That draw is not bad luck. It identifies a confound the uniform baseline does not control for: \textbf{the damage tracks activation magnitude}. Ranked by activation RMS over the probe's own state slice, the nine value neurons hold ranks 2, 9 and 10 of 896 and sum to 13.6 against a median dimension's 0.388; the damaging redraw holds ranks 5 and 22; the two benign redraws hold nothing above rank 114 and sum to 3--4. The value neurons are large --- though not the largest, a distinction worth keeping, since the stream's biggest coordinate at this layer is dimension 490 at RMS 9.81, three times any value neuron, and it is not in the set. The control this calls for is a matched one: three draws of nine dimensions, each member matched one-to-one to a value neuron's activation RMS, taken from outside the top 5\% and outside the sink. It dissolves the effect (\code{qwen0.5b/ablate\_layer16\_magmatch*.json}):
+
+\begin{table}[t]
+\centering
+\caption{Zeroing nine dimensions at layer 16 of the frozen Qwen2.5-0.5B ($n{=}100$ GSM8K test, greedy, 384 tokens). The matched draws are matched to the value neurons on activation RMS and drawn from outside the top 5\% and outside the attention sink. The base arm reproduced all 100 items identically across the three runs that carry one.}
+\label{tab:vnablate}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+zeroed at layer 16 & GSM8K & McNemar vs base & summed RMS & mean tokens \\
+\midrule
+nothing (base) & 31\% & --- & --- & 255 \\
+nine value neurons & 18\% & 0.029 & 13.6 & 246 \\
+magnitude-matched draw 0 & 21\% & 0.099 & 11.4 & 271 \\
+magnitude-matched draw 1 & 26\% & 0.442 & 10.2 & 275 \\
+magnitude-matched draw 2 & 6\% & $<10^{-5}$ & 11.5 & 88 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The three matched draws average 17.7\% against the value neurons' 18.0\%: at this backbone and this layer the value-neuron set is indistinguishable from any nine comparably large coordinates. Draw 2 also shows a failure mode the accuracy column hides, cutting generated length from 255 tokens to 88 with the end-of-sequence rate rising to 0.90 --- zeroing large coordinates can \emph{stop} the model rather than mislead it.
+
+At 9B there is no damage to explain. Zeroing the 41 value neurons at layer 24 costs three points ($83\% \to 80\%$, $p = 0.375$), the top 5\% costs one ($p = 1.0$), and three random 41-dimension draws cost nothing (82\%, 83\%, 84\%, $p = 1.0$ each; \code{qwen35/ablate\_layer24.json}). A magnitude-matched control was prepared for this backbone and then cancelled, with its reasoning recorded (\code{results/qwen35/vn35\_magmatch.log}): a matched control exists to ask whether damage is value or magnitude, and here there is no damage to attribute. The magnitude story also inverts with scale, which may be why: at 0.5B two of the nine value neurons sit in the top 1\% of dimensions by activation RMS, a 22-fold enrichment, and at 9B three of 41 do, a 7.3-fold one, while layer 24 has no attention-sink dimension at all. A small model appears to pack value information into the few channels it can least afford to lose --- exactly the regime in which an ablation cannot separate the two explanations.
+
+\textbf{What survives is the probe.} A probe rescales its own inputs, so a large coordinate earns no advantage there, and the top 1\% still keeps AUC 0.628 at 0.5B and 0.788 at 9B where same-size random subsets retrained identically reach 0.454--0.577 and 0.655--0.747. The defensible claim is therefore correlational and narrow: a sparse subset of coordinates carries a disproportionate share of a linearly decodable self-evaluation signal, in the early-middle layers only. It is a \emph{probe-identified, plausible} place to write into, not a demonstrated causal substrate --- and that is the claim on which the rest of this section rests.
+
+\textbf{How many coordinates, and does the answer scale?} The probe is trained at
+full width and then pruned by its own $L_1$ column norms, which gives the held-out
+AUC as a function of how many coordinates survive. Read across the two scales
+(Table~\ref{tab:vnknee}) the curves have the same shape and, more interestingly, the
+same \emph{absolute} breaking point. At 9B the AUC sits between 0.82 and 0.85 from
+4096 coordinates down to 205 and then falls away, to 0.768 at 82. At 0.5B it sits
+between 0.66 and 0.69 from 896 down to 179 and then falls, to 0.634 at 45. The knee
+is near 100--200 coordinates at both, while $d_{\mathrm{model}}$ differs by
+4.6$\times$ --- so as a \emph{fraction} it moves from roughly 20\% of the stream to
+roughly 5\%.
+
+\begin{table}[t]
+\centering
+\caption{Held-out probe AUC against the number of surviving coordinates, at the
+chosen layer of each backbone ($L{=}16$ for Qwen2.5-0.5B, $L{=}24$ for Qwen3.5 9B;
+\code{auc\_by\_ratio} in the layer records). The pruning grid is geometric, so it
+locates the knee only to within a factor of about two.}
+\label{tab:vnknee}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+& full & 50\% & 20\% & 10\% & 5\% & 2\% & 1\% \\
+\midrule
+Qwen2.5-0.5B ($d = 896$) & 0.674 & 0.685 & 0.676 & 0.663 & 0.634 & 0.611 & 0.628 \\
+\quad coordinates kept & 896 & 448 & 179 & 90 & 45 & 18 & 9 \\
+Qwen3.5 9B ($d = 4096$) & 0.821 & 0.836 & 0.825 & \textbf{0.852} & 0.825 & 0.768 & 0.788 \\
+\quad coordinates kept & 4096 & 2048 & 819 & 410 & 205 & 82 & 41 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+We state this carefully, because it is the observation on which a scaling argument
+would rest and it is weaker than such an argument needs. The grid steps by factors
+of about 2.2, so ``100--200'' is the resolution available and not a measurement; the
+AUC differences inside each flat region are within what a 160-item held-out split
+resolves, so the apparent peaks at 448 and 410 should not be read as peaks; and two
+scales are two points. What can be said is that nothing here suggests the value
+signal occupies a fixed \emph{fraction} of the residual stream, and the fixed
+\emph{count} reading is the one consistent with both measurements. If it holds, a
+bridge written into a few hundred coordinates stays a few hundred coordinates as
+backbones widen, and the share of the stream it disturbs keeps falling --- which is
+the property that would make this kind of coupling usable on a frontier model, and
+which Section~\ref{sec:const9b} shows is not yet demonstrated at even one scale.
+
+
+\section{The partner, the teacher, and a masked write}
+\label{sec:constbridge}
+
+\textbf{The partner holds the document and little else.} Qwen2.5-0.5B-Instruct was fine-tuned on the constitution (28,958 words, 39 headings; the copy and its provenance are committed) with every decoder block trainable and the 136M embedding frozen --- 357.9M of 494.0M parameters --- for 600 iterations, about 7.3 epochs, then frozen. What it absorbed is recitation: 27 of 38 sections come back verbatim for 160 tokens from their heading, bimodally (a section either returns exact or a different section does), the four core properties emerge in their stated priority order and the three principals by name. What it did not absorb is shown most sharply by the one probe it fails: asked to list the hard constraints, it returns 0 of 7, supplying the \emph{definition} of a hard constraint instead. Held-out paragraphs of the same document score perplexity 513 against the base model's 29. A memoriser, then, standing where the Fourier operator stood: the bridges read its hidden states, and what those states can carry about a situation is bounded by what the document says about one.
+
+\textbf{The teacher is the backbone reading the document, not the partner.} Training is self-distillation. The teacher is the same frozen backbone given a constitution excerpt as its system prompt --- the core values, the honesty properties, the hard constraints, 2,848 words --- and the student is that backbone under a plain system prompt with the bridges attached; the loss is cross-entropy on the teacher's greedy continuation over red-team prompts from \code{hh-rlhf} harmless-base \citep{bai2022hh}, alongside the no-harm arm of Section~\ref{sec:interface2} on GSM8K and MMLU prompts with the backbone's own continuations. The distinction matters for reading everything below: the constitution reaches the student through the \emph{teacher's context}, and the partner model is the channel's far end rather than its source. This is also what separates the setup from Constitutional AI \citep{bai2022cai}, which revises a model's outputs against principles and trains on the revisions; here nothing is revised and no weights of either model move.
+
+Worth stating before any training number, because it bounds what distillation can transfer: the excerpt is a weak and two-sided signal. At 0.5B it changes the continuation on 97--99\% of red-team prompts, but the change is mainly terseness (114 $\to$ 62 tokens) and stopping (end-of-sequence 54\% $\to$ 78\%), and its effect on refusal is a residue of much larger churn --- on the training split it \emph{adds} a refusal on 19.1\% of prompts and \emph{removes} one on 13.75\%, for a net of $+5.4$ points. The document is not acting as a refusal filter; it changes the decision in both directions, which is what its own text asks for. It also refuses more on ordinary requests (0.04 $\to$ 0.12), so a faithful student inherits an over-refusal tax.
+
+\textbf{The write is masked.} The forward bridge reads the whole residual stream at \code{l\_fwd} --- value dimensions alone cannot carry a situation --- pools the prompt into eight soft tokens with learned queries, and rescales them to the partner's embedding RMS (0.015; without that rescale they arrive about sixty times too large). The partner runs them between a fixed prefix and the fixed suffix \emph{``According to Claude's constitution, in this situation Claude should''}, and its final-norm states at the last eight positions are the features a reverse bridge maps back to eight tokens. The injection is the gated cross-attention of Section~\ref{sec:interface2} with one change: its output is multiplied by a frozen boolean mask over the written dimensions, and the injection cap and the receiver's local scale are taken over those coordinates only --- otherwise ``5\% of the local stream'' is ten times too tight for a nine-dimension write. With an all-ones mask the module is bit-identical to the unmasked one, and with a narrow mask the change to every other coordinate is exactly zero; both are asserted in its self-test. So the write location is a training-time flag, and the experiments below are one script differing in it. The bridges are 3.69M parameters at 0.5B and 28.34M at 9B.
+
+\section{Write location at 0.5B}
+\label{sec:const05}
+
+Ten variants, 2,000 steps each at batch 8, learning rate $3\times10^{-4}$, gate bias 0, cap 0.2, a no-harm step every second step under a gate penalty of 1, 1.7\,s/step at a 15.5\,GB peak (\code{results/constitution/summary\_qwen0.5b.json}, $n = 100$ held out):
+
+\begin{table}[t]
+\centering
+\caption{Constitution bridge at 0.5B by write location. CE is to the teacher's greedy continuation; ``ordinary'' is a held-out helpfulness split. The zeroed arm equals the base arm to four decimals in every run. The last two rows are the partner control: the same writes with an untouched Qwen2.5-0.5B-Instruct in the partner's place.}
+\label{tab:const05}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+write into & dims & val CE & test CE & test agree & test refusal & ordinary CE & ordinary refusal \\
+\midrule
+base (no bridge) & --- & 0.977 & 0.943 & 78.0\% & 34\% & 0.789 & 2\% \\
+teacher (stored) & --- & --- & --- & --- & 41\% & --- & 12\% \\
+nine value neurons & 9 & 0.962 & 0.925 & 78.3\% & 35\% & 0.771 & 2\% \\
+top-45 value neurons & 45 & 0.922 & 0.883 & 78.8\% & 31\% & 0.748 & 1\% \\
+nine random dims & 9 & 0.975 & 0.941 & 78.0\% & 32\% & 0.788 & 2\% \\
+nine magnitude-matched & 9 & 0.964 & 0.929 & 78.3\% & 34\% & 0.782 & 3\% \\
+whole stream & 896 & 0.628 & 0.585 & 83.1\% & 57\% & 0.591 & 8\% \\
+nine value neurons, \emph{plain} partner & 9 & 0.957 & 0.921 & 78.2\% & 32\% & 0.770 & 2\% \\
+whole stream, \emph{plain} partner & 896 & 0.627 & 0.575 & 83.1\% & 61\% & 0.580 & 11\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{The partner control is the most consequential row, and it is negative.} Both plain-partner variants match or beat their constitution-partner twins at every chunk of training and on every held-out column, and the paired record puts this more sharply than ``within noise'': at nine dimensions the plain partner is \emph{better} by 0.0040 of per-item cross-entropy, 95\% $[-0.0079, -0.0009]$, an interval excluding zero, and at full width the two are genuinely indistinguishable ($-0.0096$, 95\% $[-0.0302, +0.0125]$). So at 0.5B the document in the partner's weights is not what the channel carries --- removing it costs nothing at either width and at the narrow width slightly helps. The constitution enters through the teacher's context, and the partner is a latent scratchpad of the right shape rather than a source. A memorising partner is, on this evidence, not merely interchangeable with one that has never read the document but marginally worse than it. Whether a partner that \emph{reasons} with a document behaves differently is untested --- it would need a larger partner --- and it is the single most important thing this section does not show.
+
+\textbf{The write location matters, and mostly for the wrong reason.} Nine random dimensions carry nothing (the optimizer gives up and the no-harm penalty shuts the gate to 0.09); nine value neurons carry a small reproducible signal with the gate held at 0.50; forty-five carry three times as much. But the ablation's magnitude confound applies here too, and starker: the nine random dimensions sum to 3.3 of activation RMS against the value neurons' 13.6, with nothing above rank 166, so the random write is a smaller perturbation by construction. The magnitude-matched write splits the difference, and three matched draws fix where (\code{eval/const\_paired\_bootstrap.py}; 20,000-sample paired bootstrap on per-item cross-entropy over the same hundred items):
+
+\begin{table}[t]
+\centering
+\caption{Paired differences in held-out per-item cross-entropy at 0.5B, and the share of the value-neuron gain each control reproduces. Three magnitude-matched draws, not one: the first draw alone suggested 75\%.}
+\label{tab:constpaired}
+\small
+\begin{tabular}{lrrr}
+\toprule
+& test CE & $\Delta$ vs base & share of the value-neuron gain \\
+\midrule
+nine value neurons & 0.9249 & $-0.0182$ & 100\% \\
+magnitude-matched draw 0 & 0.9294 & $-0.0137$ & 75.3\% \\
+magnitude-matched draw 1 & 0.9312 & $-0.0119$ & 65.4\% \\
+magnitude-matched draw 2 & 0.9344 & $-0.0087$ & 47.8\% \\
+\textbf{matched mean} & \textbf{0.9317} & $\mathbf{-0.0114}$ & \textbf{62.8\%} \\
+nine random dims & 0.9406 & $-0.0025$ & 13.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Activation magnitude accounts for about 63\% of what the value-neuron write buys and dimension identity for about 37\%. The across-draw standard deviation is 0.0025, comparable to the identity term itself, so that term's \emph{size} is known only to within about a factor of two; its \emph{sign} is firmer, since all three matched draws are worse than the value neurons, by 0.0045, 0.0063 and 0.0095, the paired interval against draw 0 is $-0.0045$ with 95\% $[-0.0073, -0.0017]$, and 71 of the hundred items favour the value neurons over that draw (against base the value-neuron write improves 97 of 100).
+
+\textbf{Harm is ordered by width, not by location.} The guard-rail suite of \companion{} rerun on these bridges gives GSM8K item-identical to the backbone for the nine-dimension writes at a KL to base of $7\times10^{-6}$, $1.4\times10^{-4}$ at 45 dimensions, and $2.2\times10^{-2}$ at full width, where the coupled model loses eight GSM8K points (15 items lost, 7 gained, $p = 0.13$) and its refusal rate overshoots the teacher's. The magnitude-matched write is as harmless as the value-neuron write it mimics (31/32/31 against 31/31/31, KL $6\times10^{-6}$): whatever the ablation says about which coordinates are load-bearing, a nine-coordinate write is harmless either way. One qualification the earlier draft of this work got wrong and is worth stating precisely: the claim that value-neuron writes keep KL below $10^{-3}$ on every benchmark holds for the nine-dimension write, whose largest is $1.25\times10^{-4}$, but not for the 45-dimension one, whose BoolQ KL is $2.1\times10^{-3}$.
+
+\section{Width at 9B: budget, not dimensionality}
+\label{sec:const9b}
+
+Three widths on Qwen3.5 9B, everything else as above: the top 1\% of value neurons (41 of 4096 at layer 24), the top 5\% (205), and the whole stream. Two chunks of 500 steps at batch 2 each, 26.7\,s/step at a 48.9\,GB peak against 25.8\,GB of physical memory --- the phase ran through compression and swap --- and every width converged inside its first chunk, the chunk-to-chunk movement in held-out CE being 0.0004, 0.0010 and 0.0010. The teacher was built on 1,000 prompts, half the 0.5B's count, and one caveat attaches to those targets. The builder prefills the teacher's 3,426-token system block once and clones the cache per prompt, checking the cached path against an uncached decode on three probes: 3 of 3 agreed at 0.5B, \textbf{0 of 3 at 9B}, the hybrid backbone's recurrent caches falling back to a state-restore clone. Generating the same prompt twice through the cached path returns identical tokens, so the path is self-consistent and the divergence is greedy ties resolved differently under a different prefill chunking --- which is what training needs --- but the 9B teacher continuations were never verified token-identical to an uncached decode, and every number below inherits that.
+
+\begin{table}[t]
+\centering
+\caption{Constitution bridge at 9B by write width. CE and agreement $n = 50$ at 24 generated tokens; benchmarks and red-team refusal $n = 100$ at the guard-rail's own budgets (384 tokens for GSM8K, 128 for red-team). The zeroed arm equals the base arm to four decimals in all six evaluations. Selectivity is the ratio of the red-team KL to the GSM8K KL.}
+\label{tab:const9b}
+\small
+\begin{tabular}{lrrrrrcccrr}
+\toprule
+write into & dims & test CE & agree & ord.\ CE & ord.\ ref. & GSM8K & MMLU & BoolQ & red-team ref. & selectivity \\
+\midrule
+base & --- & 0.4829 & 0.8599 & 0.4130 & 0.02 & 83 & 64 & 90 & 0.660 & --- \\
+teacher & --- & --- & --- & --- & 0.07 & --- & --- & --- & 0.750 & --- \\
+value neurons & 41 & 0.4702 & 0.8595 & 0.4001 & 0.02 & 83 & 64 & 90 & 0.660 & 48$\times$ \\
+top 5\% & 205 & 0.4552 & 0.8600 & 0.3877 & 0.02 & 85 & 64 & 89 & 0.650 & 119$\times$ \\
+whole stream & 4096 & 0.3890 & 0.8678 & 0.3554 & 0.06 & 84 & 65 & 89 & \textbf{0.720} & 302$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Nothing here harms anything, and that inverts the 0.5B's central conclusion.} Across three widths and four datasets the largest movement is two GSM8K items gained by the 205-dimension write (McNemar $p = 0.5$); MMLU moves by at most two, the full-width write losing one and gaining two; BoolQ by one. At 0.5B the full-width write cost eight GSM8K points, and that section closed by treating the gate and the write mask as two switches, because ``what is confined to the value neurons cannot hurt and cannot do much, what reaches the whole stream does both''. At 9B the second half is false, and the last column says why: the gate learned the selectivity its no-harm arm trains for, running 302$\times$ more active on red-team prompts than on arithmetic at full width, where the 0.5B's full-width gate managed only 11.7$\times$ and bled into the reasoning. Selectivity \emph{rises} with width here --- 48$\times$, 119$\times$, 302$\times$ --- so the mask is not what keeps the wide write safe, and on this backbone nothing needs to.
+
+\textbf{Only full width moves a decision, and the move is one-directional.} Refusal on the held-out red-team prompts is 0.660 for base, 0.660 at 41 dimensions, 0.650 at 205, and 0.720 at 4096 against the teacher's 0.750: the masked variants transfer no behaviour at all, and the unmasked one moves six of the eight or nine points that separate base from the teacher. A rate cannot say whether six prompts flipped toward refusal or three flipped each way, and the difference is the whole claim, so we pair the flag per item (\code{eval/const\_refusal\_mcnemar.py}). Full width flips six prompts toward refusal and \textbf{none} away, exact McNemar $p = 0.031$; the 41- and 205-dimension writes are $1{:}1$ and $3{:}2$ churn at $p = 1.00$. So the narrow masks are not weakly transmitting, they are not transmitting, and the wide one is not drifting. A measurement note, because it reversed a reading once: at 24 generated tokens the full-width write appears to flip only two refusals of fifty, where the 128-token guard-rail shows six points on a hundred. Short windows truncate before a refusal declares itself.
+
+\textbf{Cross-entropy is sublinear in width.} On converged values the improvement over base fits $\Delta\mathrm{CE} = 0.00317\, d^{0.393}$, with residuals of $-4.2\%$, $+6.2\%$ and $-2.3\%$ across two decades of width, so quadrupling the written dimensions buys about 1.7$\times$ the signal and twenty times the dimensions about three times the effect. Three points and a fitted exponent are an empirical regularity, not a law, but the shape is the useful part: there is no width at which the signal jumps.
+
+\textbf{The widths were not compared at equal strength, and that is a property of the cap, not of the mask.} The injection cap bounds the injection's root-mean-square \emph{per written coordinate} (Section~\ref{sec:interface2}), so it is indifferent to how many coordinates are written --- and every arm saturated it exactly. Recovering the cap from the logged gate and injection ratio gives $0.2000$ at 41, 205 and 4096 dimensions alike. The total perturbation the channel may apply therefore scales with the summed squared activation of the written set, which we measure at the coupling layer (\code{results/value\_neurons/qwen35/rms\_layer24\_full.json}) and report in Table~\ref{tab:constenergy}. Full width was permitted 26$\times$ the perturbation energy of the value-neuron mask and 9.8$\times$ that of the top-5\% mask. The comparison above therefore measures what a mask does to a \emph{budget}, and says nothing yet about what it does to \emph{dimensionality}.
+
+\begin{table}[t]
+\centering
+\caption{Write energy by mask at layer 24 of Qwen3.5 9B. The cap bounds the injection per written coordinate, so the channel's total perturbation goes as $\sum_{i \in \mathrm{mask}} \mathrm{rms}_i^2$, measured over the same rollout states the probe is trained on. CE gain is against base 0.4829; the last column divides it by the relative energy the mask was allowed.}
+\label{tab:constenergy}
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+write into & dims & cap (recovered) & $\sum \mathrm{rms}^2$ & energy vs full & CE gain & gain / energy \\
+\midrule
+value neurons & 41 & 0.2000 & 286.5 & 3.81\% & 0.0127 & \textbf{0.334} \\
+top 5\% & 205 & 0.2000 & 769.2 & 10.22\% & 0.0277 & 0.271 \\
+whole stream & 4096 & 0.2000 & 7527.8 & 100\% & 0.0939 & 0.094 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Per unit of perturbation, the narrow write does more.} Dividing the CE gain by the energy the mask was allowed inverts the ranking: 0.334 at 41 dimensions and 0.271 at 205 against 0.094 at full width, so the value-neuron write is 3.6$\times$ more efficient per unit of disturbance than writing everywhere, at 45$\times$ lower total KL to the backbone. That is the quantity an alignment intervention wants to be good at --- useful change per unit of collateral --- and the mask is good at it. The earlier version of this section noticed the per-\emph{dimension} form of this and dismissed it, on the grounds that ``efficiency per dimension is not the constraint anyone has, total transfer is''. The dismissal was wrong for a reason worth stating: total transfer is a constraint, but it is not a property of the mask. It is the cap, and the cap is a free parameter.
+
+\textbf{What the channel carries changes with width, and so does what it costs.} Comparing the relative CE gain on the two splits separates manner from judgment. At 41 dimensions the gain is 2.63\% on red-team prompts and 3.12\% on ordinary ones; at 205, 5.74\% and 6.13\%. Both are \emph{larger} where the constitution has least to say --- the signature of a channel transmitting the teacher's style, its terseness and hedging under a long system prompt, rather than its situational reasoning. Only at full width does the order invert, 19.45\% against 13.95\%. And the over-refusal arrives at exactly that width: ordinary-request refusal holds at base's 0.02 for both masked variants and rises to 0.06 for the whole stream, which also refuses one ordinary prompt that neither base nor the teacher refuses. Counting items, the full-width write acquires two of the teacher's four extra refusals on ordinary requests and two of its nine on harmful ones --- a bias toward the unwanted half, though Fisher's exact test on 2-of-9 against 2-of-4 gives $p = 0.53$, so that is a direction and not a finding. The honest statement is narrower: below full width the channel carries the teacher's manner and changes nothing; at full width it starts carrying the teacher's decisions, and both halves of them arrive together.
+
+\textbf{So the design was never tested at this scale.} Writing only into the value neurons was motivated by a causal result that does not reproduce here at all (Section~\ref{sec:valueneurons}), and by the hope that a narrow write would be the safe way to carry values. The first motivation is gone. The second we can now say is untested rather than unnecessary: at 9B every width is safe, but the narrow widths were also starved, and a channel that is not permitted to perturb cannot be observed to transmit. The experiment that separates the two raises the cap to restore energy parity with full width --- $0.2\sqrt{E_{\mathrm{full}}/E_{\mathrm{mask}}}$ --- on 410 coordinates, 10\% of the stream, where the probe's AUC still holds (Section~\ref{sec:valueneurons}) and where the identity control costs nothing to construct: the probe's \emph{worst} 410 coordinates sum to 549.31 of activation RMS$^2$ against the best 410's 553.17, disjoint, with the attention sink in neither. Two arms, cap 0.5220 and 0.5514, ask whether 10\% of the coordinates suffice and whether they have to be those 10\%. \pending{energy-matched 410-dimension arms: CE, red-team KL, paired refusal, and the GSM8K / MMLU / BoolQ collateral of a 2.6$\times$ larger per-coordinate write}
+
+\section{Both partners at once: \psilm{}-2}
+\label{sec:dual}
+
+The physics bridge and the constitution bridge can be put on the same frozen backbone and run in one forward pass. Each reads at layer 13; the constitution channel injects at 24 and the physics channel at 26, so the physics gate reads a stream the constitution has already modified. That is the composition's only real coupling, and the implementation exposes it rather than absorbing it: every active channel's read depth must lie at or below every write depth, so that the reads all see the unmodified stream and the composition has one unambiguous order, and an interleaved configuration is refused rather than silently resolved. Together the two bridges are 73.52M parameters --- physics 45.18M, constitution 28.34M --- against nine billion frozen ones.
+
+\textbf{Three bit-identity properties make the result attributable.} With both channels closed the stack reproduces the bare staged backbone; with the physics channel alone it reproduces \code{PsiLMMLX}; with the constitution channel alone it reproduces \code{PsiConstitutionMLX} --- bit for bit in each case, on a tiny random stack and on the real 9B. So any difference in a dual run is the other channel's presence and not a different code path. A joint training phase was also written, updating only the two gate modules under a cross-gate penalty that asks each channel's gate to shut on the other's on-task prompts, since neither single-channel run could have trained that: both campaigns' negatives were GSM8K and MMLU, so neither gate had ever seen the other channel's prompts as something to close on.
+
+\begin{table}[t]
+\centering
+\caption{\psilm{}-2 acceptance, $n = 50$ held-out red-team items and $n = 50$ held-out Burgers items, against the single-channel numbers the same harnesses produced (CE 0.3890, accuracy 1.000). ``Cost'' is the paired difference in per-item CE from opening the physics channel alongside the constitution channel.}
+\label{tab:dual}
+\small
+\begin{tabular}{lrrlcc}
+\toprule
+arm & const.\ CE alone & both open & cost of the other channel & physics acc.\ & verdict \\
+\midrule
+\textbf{warm-start, untrained} & \textbf{0.38905} & \textbf{0.38931} & $\mathbf{+0.00027}$, 95\% $[-0.00038, +0.00093]$ & 1.000 & \textbf{accepted} \\
+gate phase, $\lambda_{\mathrm{cross}} = 1$ & 0.39250 & 0.39243 & $-0.00007$, no interval & 1.000 & regressed \\
+gate phase, $\lambda_{\mathrm{cross}} = 0$ & 0.39564 & 0.39658 & $+0.00094$, no interval & 1.000 & regressed \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{The two channels compose for free, and training the composition makes it worse.} The untrained warm start costs $+0.00027$ of constitution cross-entropy with a paired interval spanning zero --- against the channel's own effect of $-0.094$, an interference some 350 times smaller than the signal --- and its top-1 agreement, 0.8686, is the highest of any arm measured. Physics holds 1.000 held-out accuracy in all six arms at MAE 0.0141--0.0150, straddling the physics campaign's own 0.0147. Both trained arms pay more in absolute CE than the untrained one and fail the acceptance test. The cross-gate penalty did what it was designed to do in one direction, driving the constitution gate 39$\times$ lower on physics prompts than its control did, and it paid 0.0035 of absolute CE to remove an interference that was not distinguishable from zero to begin with. Only the untrained arm carries per-item cross-entropies, so neither trained arm's cost has an interval and neither is claimed to differ from zero.
+
+Two caveats bound this. The penalty worked asymmetrically: over the same 600 steps the \emph{physics} gate became less selective in both arms, rising from 0.0110 to 0.0161 on constitution batches and 0.0113 to 0.0292 on no-harm ones, which is the term the penalty was pushing down. And the composition was measured on cross-entropy and accuracy only --- no refusal comparison, no guard-rail suite on the dual stack --- so ``free'' is established for what these two metrics see and not for behaviour.
+
+\textbf{What it says, and on what evidence.} A frozen backbone will accept two latent channels at once, from partners of entirely different kinds, with no measurable interference and no joint training: the composition is a property of the interface, not something that has to be learned. That was measured on cross-entropy and on physics accuracy --- so ``for free'' is established for what those two metrics see, and the same guard-rail suite the single channels were held to, run on the dual stack over the identical 100 cached items, is what would establish it for behaviour: \pending{dual-stack guard-rail --- red-team refusal, GSM8K / MMLU / BoolQ item churn with McNemar, and KL to base, each against the constitution channel alone}.
+
+What the values channel carries is the deflationary half of this paper, with one boundary now drawn more carefully than it was. A narrow write into probe-identified coordinates transmits a prompted teacher's manner and not its judgment \emph{at the perturbation budget the cap allowed it}; the width at which judgment did transmit is also the width that imported the teacher's over-refusal; the coordinates were chosen on a causal claim that does not reproduce at either scale; and a partner that has memorised the document is interchangeable with --- at nine dimensions, slightly worse than --- one that has never read it, because the document enters through the teacher's context rather than the partner's weights. Three of those four are findings about this design. The first is, for now, a finding about how we configured it.
+
+
+\section{Discussion and Limitations}
+\label{sec:discussion2}
+
+\textbf{What has been shown.} The coupling interface of \companion{} accepts a
+partner that computes nothing and holds a document instead, and the resulting
+channel changes the backbone's output in the direction of a teacher that has read
+the document. It does so while leaving arithmetic and multiple-choice reasoning
+item-identical to the frozen backbone, with a gate that runs two orders of
+magnitude more active on prompts the document speaks to than on prompts it does
+not --- 302$\times$ at full width --- which is the behaviour the no-harm arm trains
+for and the property that makes such a channel auditable at all. Two channels of
+unrelated kinds compose on one backbone without joint training. And the probe that
+locates the write site reproduces at two scales, with a signal that occupies a
+roughly constant number of coordinates rather than a constant fraction.
+
+\textbf{What has not been shown, and what was withdrawn.} The causal claim that
+motivated writing into value neurons does not reproduce: at 0.5B the damage is
+mostly magnitude, at 9B there is no damage to explain. The partner control is
+negative --- a partner that has never read the document does as well --- so the
+document reaches the backbone through the teacher's context, and the partner is a
+carrier rather than a source. Over-refusal arrives together with judgment at the
+only width where judgment arrived. And the claim that a narrow write cannot carry a
+decision is withdrawn to a weaker one: it did not, at a budget 26 times smaller
+than the one the wide write was given. The energy-matched experiment of
+Section~\ref{sec:const9b} is what decides that, and until it reports, the honest
+summary of this paper's central question --- can a narrow, auditable write carry a
+disposition? --- is that it remains open, with the arithmetic of the interface now
+arranged so the question can be asked properly.
+
+\textbf{The scaling conjecture, stated as a conjecture.} If the value signal
+occupies a fixed number of coordinates as backbones widen (Table~\ref{tab:vnknee}),
+and if a few hundred coordinates can carry a decision when given the budget to do
+so, then this kind of coupling gets \emph{cheaper} in relative terms at frontier
+scale: the bridge's parameters grow linearly in $d_{\mathrm{model}}$, the mask costs
+nothing, and the fraction of the stream disturbed falls. Neither antecedent is
+established. The second is the subject of a running experiment; the first rests on
+two scales and a coarse grid. We also note a limit that the arithmetic makes
+visible: restoring energy parity with a full-width write by raising the cap scales
+as $\sqrt{d_{\mathrm{model}}/n_{\mathrm{mask}}}$, which at frontier width would
+demand per-coordinate writes far outside the residual stream's own distribution. So
+parity with full width is the wrong asymptote to aim at. The quantity that governs
+whether this scales is the \emph{minimum} energy that moves a decision, and nothing
+here has measured it --- full width's KL of 0.105 for a six-item refusal shift is
+very likely far above it.
+
+\textbf{Other limitations.} The refusal measure is a keyword proxy on 100 held-out
+prompts, not a judge; six flipped items is a small evidence base for the one
+significant behavioural result in this paper. The teacher's continuations at 9B were
+generated through a cached-prefill path whose identity check against an uncached
+decode passed 3 of 3 at 0.5B and \textbf{0 of 3} at 9B (the path is self-consistent,
+and the divergence is greedy ties under different prefill chunking, but every 9B
+number inherits the caveat). The constitution enters as a 2{,}848-word excerpt, not
+the whole document. All backbones are 4-bit quantized. And everything was run once,
+on one machine, at one seed.
+
+\section{Reproducibility}
+\label{sec:repro2}
+
+Everything is in \url{https://github.com/ryoji-info/PsiLM-2}, with the coupling
+interface and the physics-partner work in \url{https://github.com/ryoji-info/PsiLM}.
+The value-neuron probe, its magnitude controls, the constitution bridge at both
+scales, the width arms and the dual stack are driven by the shell chains under
+\code{results/}, each resumable and each writing the log the paper cites.
+Two verification scripts check the properties the dual stack's attribution rests
+on: \code{psilm2/dual\_self\_test.py} (nine assertions, including three
+bit-identity properties and a gradient audit) and \code{psilm2/verify\_qwen35.py}
+(the same three on the real 9B). Two more make claims checkable that were
+previously asserted from gitignored trajectory stores:
+\code{eval/vn\_rms\_full.py} writes the per-coordinate activation magnitudes behind
+every magnitude claim and every energy figure in Table~\ref{tab:constenergy}, and
+\code{eval/const\_paired\_bootstrap.py} regenerates the paired intervals.
+\code{eval/const\_refusal\_mcnemar.py} regenerates the paired refusal tests.
+\pending{total compute, summed from the measured rates in the run logs}
+
+\section{AI Generation Disclosure}
+\label{sec:disclosure2}
+
+The work reported here was carried out by Claude (Anthropic) --- the Fable 5,
+Fable 5.1 and Opus 5 models, as recorded in the repository's commit trailers ---
+working on the author's Apple M2 laptop under the author's direction. Claude wrote
+the code, ran the experiments, chose most of the intermediate designs, and wrote
+this paper. The author set the research direction, approved or redirected each
+campaign, and decides what is published.
+
+One part of the process is worth recording because it changed the content. Before
+publication the manuscript was audited by separate Opus 5 agents reading the
+repository against the text, which found sixteen claims that the logs did not
+support --- two of them reporting bugs rather than wording --- and the corrections
+are in the git history. The correction in Section~\ref{sec:const9b} has a different
+origin: it came from the author asking whether a wider mask might work, which sent
+Claude back to the injection code to check what the cap actually bounded. Neither
+the original campaign nor its audit had questioned it.
+
+\subsection*{Acknowledgments}
+
+The constitution text is Anthropic's, released under CC0
+\citep{anthropic2026constitution}. The value-neuron probe follows
+\citet{xu2026valueneurons}; the harmlessness prompts are \code{hh-rlhf}
+\citep{bai2022hh}.
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}
