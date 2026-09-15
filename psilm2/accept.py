@@ -60,14 +60,19 @@ def eval_constitution(psi, items, n, arms):
     out = {}
     for label, (pm, cm) in arms.items():
         psi.set_modes(physics=pm, constitution=cm)
-        ces, ags = [], []
+        ces, ags, qids = [], [], []
         for it in items[:n]:
             if not it.get("teacher_ids"):
                 continue
             ce, ag = teacher_forced(psi, it["prompt_ids"], it["teacher_ids"])
-            ces.append(ce); ags.append(ag)
+            ces.append(ce); ags.append(ag); qids.append(it.get("source"))
         out[label] = {"n": len(ces), "ce": sum(ces) / len(ces),
-                      "agree": sum(ags) / len(ags)}
+                      "agree": sum(ags) / len(ags),
+                      # per-item, because the differences that decide a phase are
+                      # 0.003-scale on n=50 and a mean alone cannot say whether that
+                      # is a regression or the measurement's own noise. Same items in
+                      # every arm, so the comparison is paired.
+                      "ce_items": ces, "agree_items": ags, "qids": qids}
         if hasattr(mx, "clear_cache"):
             mx.clear_cache()
     return out
@@ -134,6 +139,10 @@ def main():
     # campaign's held-out record)
     ap.add_argument("--base-const-ce", type=float, default=0.3890)
     ap.add_argument("--base-phys-acc", type=float, default=1.0)
+    ap.add_argument("--warm-start", action="store_true",
+                    help="measure the UNTRAINED composition: both channels straight "
+                         "from their single-channel checkpoints, no phase applied. "
+                         "This is the arm that says whether a phase was needed at all.")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -145,11 +154,15 @@ def main():
     psi = load_dual_stack(model, tok, phys_ckpt=a.phys_ckpt, fno_path=a.fno,
                           const_ckpt=a.const_ckpt, const_model_path=a.const_model)
     ck = Path(a.ckpt)
-    from .train_dual import resume
-    step = resume(psi, ck)
-    if not step:
-        raise SystemExit(f"{ck}/bridges.safetensors holds no step: nothing to accept")
-    meta = json.loads((ck / "bridges.safetensors.meta").read_text())
+    if a.warm_start:
+        step, meta = 0, {"phase": "warm-start (untrained)", "lam_cross": None,
+                         "gate_only": None}
+    else:
+        from .train_dual import resume
+        step = resume(psi, ck)
+        if not step:
+            raise SystemExit(f"{ck}/bridges.safetensors holds no step: nothing to accept")
+        meta = json.loads((ck / "bridges.safetensors.meta").read_text())
     print(psi.describe())
     print(f"phase {meta.get('phase')} step {step}, lam_cross={meta.get('lam_cross')}, "
           f"gate_only={meta.get('gate_only')}")
@@ -184,7 +197,20 @@ def main():
     print("\nacceptance against the single-channel baselines "
           f"(CE {a.base_const_ce} +{b.const_tol}, acc {a.base_phys_acc} -{b.phys_tol}):")
     print("  " + ("ACCEPTED" if ok else "REGRESSED: " + "; ".join(why)))
-    print("\nwhat opening the other channel costs:")
+    def paired(a_items, b_items):
+        """mean difference and a 20k-sample bootstrap interval, paired over items."""
+        import random as _r
+        d = [x - y for x, y in zip(a_items, b_items)]
+        m = sum(d) / len(d)
+        rr = _r.Random(0)
+        means = sorted(sum(s) / len(d) for s in
+                       ([d[rr.randrange(len(d))] for _ in d] for _ in range(20000)))
+        return m, means[int(0.025 * 20000)], means[int(0.975 * 20000)]
+
+    m, lo, hi = paired(cres["both open"]["ce_items"], cres["constitution only"]["ce_items"])
+    print("\nwhat opening the other channel costs (paired over the same items):")
+    print("  constitution CE, both open minus constitution only: %+.4f  95%% [%+.4f, %+.4f]"
+          % (m, lo, hi))
     print("  constitution CE  %.4f alone -> %.4f with physics open  (%+.4f)"
           % (cres["constitution only"]["ce"], cres["both open"]["ce"],
              cres["both open"]["ce"] - cres["constitution only"]["ce"]))
