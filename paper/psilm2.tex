@@ -25,7 +25,7 @@
 \maketitle
 
 \begin{abstract}
-A frozen language model can be coupled to a frozen partner model through small trainable latent bridges, with no text at the interface: \companion{} builds such a system around a physics partner, where the quantity being carried is a number the partner computes. This paper asks whether the same channel can carry a \emph{disposition} --- and where in a backbone's hidden state it should be written. The partner is a 0.5B model holding Claude's constitution \citep{anthropic2026constitution}; the write site is the ``value neurons'' of \citet{xu2026valueneurons}, a sparse set of residual-stream coordinates that predict state value; the supervision is self-distillation from the same frozen backbone prompted with the document. We report four things. (1) The probe reproduces at both scales but its published causal justification does not: at 0.5B the damage from ablating value neurons tracks activation magnitude, with magnitude-matched controls reproducing 63\% of it, and at 9B the ablation is a flat null. (2) The number of coordinates carrying the probe's value signal is roughly \emph{fixed in absolute terms} across a 4.6$\times$ change in model width --- an AUC knee near 100--200 dimensions at both 896 and 4096 --- so it is a falling \emph{fraction} as models grow. (3) A masked write into those coordinates is safe at 9B and transmits the prompted teacher's manner but not its judgment, while a full-width write moves decisions (red-team refusal $0.660 \to 0.720$, six prompts flipping toward refusal and none away, exact McNemar $p = 0.031$) and imports the teacher's over-refusal with them. That contrast, however, is confounded: the injection cap bounds the write's \emph{per-dimension} magnitude and every arm saturated it, so full width was handed 26$\times$ the total perturbation energy of the value-neuron mask. Per unit of energy actually spent the narrow write did 3.6$\times$ more. At matched energy, \pending{energy-matched 410-dimension arms}. (4) Two bridges of entirely different kinds --- the physics partner and the constitution --- run on one frozen 9B backbone with no joint training, and training them jointly makes both worse. Neither channel costs the other its payload: with both open, the five red-team prompts that flip toward refusal are a subset of the six the constitution channel flips alone, and the two arms disagree on one held-out prompt in a hundred. But the composition is not inert on the backbone, and that is this paper's last negative result: MMLU moves from 0.64 to 0.69, five items gained and none lost, with a KL to base of 0.072 where either channel alone stayed at 0.005. Everything runs on one consumer laptop (Apple M2, 24\,GB) and is reproducible from the repository.
+A frozen language model can be coupled to a frozen partner model through small trainable latent bridges, with no text at the interface: \companion{} builds such a system around a physics partner, where the quantity being carried is a number the partner computes. This paper asks whether the same channel can carry a \emph{disposition} --- and where in a backbone's hidden state it should be written. The partner is a 0.5B model holding Claude's constitution \citep{anthropic2026constitution}; the write site is the ``value neurons'' of \citet{xu2026valueneurons}, a sparse set of residual-stream coordinates that predict state value; the supervision is self-distillation from the same frozen backbone prompted with the document. We report four things. (1) The probe reproduces at both scales but its published causal justification does not: at 0.5B the damage from ablating value neurons tracks activation magnitude, with magnitude-matched controls reproducing 63\% of it, and at 9B the ablation is a flat null. (2) The number of coordinates carrying the probe's value signal is roughly \emph{fixed in absolute terms} across a 4.6$\times$ change in model width --- an AUC knee near 100--200 dimensions at both 896 and 4096 --- so it is a falling \emph{fraction} as models grow. (3) A masked write into those coordinates is safe at 9B and transmits the prompted teacher's manner but not its judgment, while a full-width write moves decisions (red-team refusal $0.660 \to 0.720$, six prompts flipping toward refusal and none away, exact McNemar $p = 0.031$) and imports the teacher's over-refusal with them. That contrast, however, is confounded: the injection cap bounds the write's \emph{per-dimension} magnitude and every arm saturated it, so full width was handed 26$\times$ the total perturbation energy of the value-neuron mask. Per unit of energy actually spent the narrow write did 3.6$\times$ more. At matched energy the same 410 coordinates --- 10\% of the stream, the cap raised to restore parity --- carry 62\% of full width's cross-entropy gain, 55\% of its divergence and four of its six refusal flips, without the over-refusal; so most of what read as a width effect was budget, though a residue survives parity and the stronger per-coordinate write buys a new perturbation on MMLU. (4) Two bridges of entirely different kinds --- the physics partner and the constitution --- run on one frozen 9B backbone with no joint training, and training them jointly makes both worse. Neither channel costs the other its payload: with both open, the five red-team prompts that flip toward refusal are a subset of the six the constitution channel flips alone, and the two arms disagree on one held-out prompt in a hundred. But the composition is not inert on the backbone, and that is this paper's last negative result: MMLU moves from 0.64 to 0.69, five items gained and none lost, with a KL to base of 0.072 where a single channel at its trained cap stayed at 0.005 --- though four of those five items move under a single channel too once its write is strong enough, so the divergence and not the item set is what distinguishes the dual stack. Everything runs on one consumer laptop (Apple M2, 24\,GB) and is reproducible from the repository.
 \end{abstract}
 
 \section{Introduction}
@@ -294,7 +294,73 @@ whole stream & 4096 & 0.2000 & 7527.8 & 100\% & 0.0939 & 0.094 \\
 
 \textbf{What the channel carries changes with width, and so does what it costs.} Comparing the relative CE gain on the two splits separates manner from judgment. At 41 dimensions the gain is 2.63\% on red-team prompts and 3.12\% on ordinary ones; at 205, 5.74\% and 6.13\%. Both are \emph{larger} where the constitution has least to say --- the signature of a channel transmitting the teacher's style, its terseness and hedging under a long system prompt, rather than its situational reasoning. Only at full width does the order invert, 19.45\% against 13.95\%. And the over-refusal arrives at exactly that width: ordinary-request refusal holds at base's 0.02 for both masked variants and rises to 0.06 for the whole stream, which also refuses one ordinary prompt that neither base nor the teacher refuses. Counting items, the full-width write acquires two of the teacher's four extra refusals on ordinary requests and two of its nine on harmful ones --- a bias toward the unwanted half, though Fisher's exact test on 2-of-9 against 2-of-4 gives $p = 0.53$, so that is a direction and not a finding. The honest statement is narrower: below full width the channel carries the teacher's manner and changes nothing; at full width it starts carrying the teacher's decisions, and both halves of them arrive together.
 
-\textbf{So the design was never tested at this scale.} Writing only into the value neurons was motivated by a causal result that does not reproduce here at all (Section~\ref{sec:valueneurons}), and by the hope that a narrow write would be the safe way to carry values. The first motivation is gone. The second we can now say is untested rather than unnecessary: at 9B every width is safe, but the narrow widths were also starved, and a channel that is not permitted to perturb cannot be observed to transmit. The experiment that separates the two raises the cap to restore energy parity with full width --- $0.2\sqrt{E_{\mathrm{full}}/E_{\mathrm{mask}}}$ --- on 410 coordinates, 10\% of the stream, where the probe's AUC still holds (Section~\ref{sec:valueneurons}) and where the identity control costs nothing to construct: the probe's \emph{worst} 410 coordinates sum to 549.31 of activation RMS$^2$ against the best 410's 553.17, disjoint, with the attention sink in neither. Two arms, cap 0.5220 and 0.5514, ask whether 10\% of the coordinates suffice and whether they have to be those 10\%. \pending{energy-matched 410-dimension arms: CE, red-team KL, paired refusal, and the GSM8K / MMLU / BoolQ collateral of a 2.6$\times$ larger per-coordinate write}
+\textbf{So the design was never tested at this scale.} Writing only into the value neurons was motivated by a causal result that does not reproduce here at all (Section~\ref{sec:valueneurons}), and by the hope that a narrow write would be the safe way to carry values. The first motivation is gone. The second we can now say is untested rather than unnecessary: at 9B every width is safe, but the narrow widths were also starved, and a channel that is not permitted to perturb cannot be observed to transmit. The experiment that separates the two raises the cap to restore energy parity with full width --- $0.2\sqrt{E_{\mathrm{full}}/E_{\mathrm{mask}}}$ --- on 410 coordinates, 10\% of the stream, where the probe's AUC still holds (Section~\ref{sec:valueneurons}) and where the identity control costs nothing to construct: the probe's \emph{worst} 410 coordinates sum to 549.31 of activation RMS$^2$ against the best 410's 553.17, disjoint, with the attention sink in neither. Two arms, cap 0.5220 and 0.5514, ask whether 10\% of the coordinates suffice and whether they have to be those 10\%. Table~\ref{tab:width410} reports what they found.
+
+\begin{table}[t]
+\centering
+\caption{The probe-best 410 coordinates at energy parity with the full-width write,
+against the three arms that were measured at the default cap. Energy is the summed
+squared activation of the written set, relative to the whole stream; the recovered
+cap is $\mathrm{ratio}/\sigma$ from the logged evaluation, confirming the budget was
+spent rather than assumed. CE and the ordinary-request refusal are $n = 50$ at 24
+generated tokens; KL, benchmark churn and red-team refusal are $n = 100$ at the
+guard-rail's budgets. Churn is items gained${:}$lost against the frozen backbone with
+the exact McNemar $p$.}
+\label{tab:width410}
+\small
+\begin{tabular}{lrrrrrrrr}
+\toprule
+write into & dims & cap & energy & CE & red-team KL & refusal ($p$) & MMLU KL & ord.\ ref. \\
+\midrule
+value neurons & 41 & 0.200 & 3.8\% & 0.4702 & 0.0023 & $1{:}1$ (1.00) & 0.00011 & 0.02 \\
+top 5\% & 205 & 0.200 & 10.2\% & 0.4552 & 0.0098 & $3{:}2$ (1.00) & 0.00016 & 0.02 \\
+\textbf{probe-best 410} & \textbf{410} & \textbf{0.522} & \textbf{100\%} & \textbf{0.4250}
+  & \textbf{0.0576} & $\mathbf{1{:}4}$ \textbf{(0.375)} & \textbf{0.0244} & \textbf{0.02} \\
+whole stream & 4096 & 0.200 & 100\% & 0.3890 & 0.1047 & $0{:}6$ (0.031) & 0.0045 & 0.06 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Given the budget, 10\% of the coordinates transmit.} The same 410 coordinates
+that carry nothing at the default cap carry, at parity, 62\% of full width's
+cross-entropy gain on the red-team split (0.0579 against 0.0939), 55\% of its
+divergence (0.0576 against 0.1047), and four of the six red-team prompts it flips
+toward refusal, three of them the same prompts. The starved interpolation from the
+fitted power law predicted a gain of 0.034; parity delivers 0.058. So the first
+reading of this campaign --- that the mask throttles the signal and the whole stream
+is needed to move a decision --- was substantially an artifact of the cap, and the
+honest replacement is that width and budget both matter, with budget the larger term
+over the range measured.
+
+\textbf{What parity does not do is close the gap.} Two thirds is not equality, and
+the refusal move --- $1{:}4$, $p = 0.375$ --- is neither distinguishable from zero nor
+from full width's $0{:}6$ on 100 items. We said in advance that 100 items could not
+resolve an intermediate effect and they did not; this arm establishes a direction and
+a magnitude on cross-entropy and divergence, where the measurement is precise, and
+leaves the behavioural question underpowered. Whether the residual third is
+dimensionality or the diminishing return of spending perturbation is what the
+identity control speaks to.
+
+\textbf{The narrow write is tighter in three places and looser in one.} Against full
+width at the same total energy it halves the GSM8K divergence (0.00014 against
+0.00035), cuts BoolQ's by a third (0.00032 against 0.00091), moves no BoolQ item, and
+--- the result that matters most for an alignment channel --- leaves ordinary-request
+refusal at the backbone's 0.02 where full width rose to 0.06, so it acquires the
+teacher's judgment on the harmful split without acquiring its over-refusal on the
+ordinary one. That is 0 extra refusals against full width's 2 of 50, which is not a
+distinguishable difference, and we flag it as the most promising thin result here
+rather than a finding.
+
+The exception is MMLU, and it locates the cost of the trade precisely. Accuracy goes
+0.64 to 0.70, six items gained and none lost ($p = 0.031$), at an MMLU KL of 0.0244
+--- 5.4$\times$ the 0.0045 of a full-width write carrying the same total energy in
+2.6$\times$ smaller per-coordinate steps. Total energy does not predict this and
+per-coordinate magnitude does, which is what one would expect if the cost of a
+concentrated write is leaving the residual stream's own distribution locally. An
+alignment channel that must be narrow therefore does not get its tightness for free
+either: it trades a uniform small disturbance everywhere for a concentrated large one
+somewhere, and the benchmarks disagree about which they prefer.
+
 
 \section{Both partners at once: \psilm{}-2}
 \label{sec:dual}
@@ -359,8 +425,8 @@ constitution channel's write, and it is not being displaced by it. That is the p
 of the composition claim that survives contact with behaviour, and it is the part
 the bit-identity properties above predict.
 
-\textbf{The composition is not inert on the backbone, which neither channel alone
-was.} MMLU accuracy goes from the backbone's 0.64 to 0.69 with both channels open:
+\textbf{The composition is not inert on the backbone, which neither channel at its
+trained cap was.} MMLU accuracy goes from the backbone's 0.64 to 0.69 with both channels open:
 five items gained, none lost, exact McNemar $p = 0.0625$, against $2{:}1$ at
 $p = 1.00$ for the constitution channel by itself. The divergence moves with it ---
 MMLU KL to base 0.0723 with a p90 of 0.205, sixteen times the 0.0045 the
@@ -377,17 +443,29 @@ the dual stack to be harmless gets that. What fails is the stronger and more
 interesting claim, that the composition is free: adding a second channel changed the
 backbone's answers on a benchmark neither channel moved by itself.
 
-\textbf{Which channel, and that is not yet attributed.} All five gained items are
-\code{high\_school\_mathematics} (four) and \code{college\_physics} (one), and two of
-the four mathematics items were already gained by the constitution channel alone.
-The subjects point at the physics channel, which is the one with a reason to engage a
-mathematics prompt. Pointing is not attributing, for a reason worth stating plainly:
-the gate the bench records in this run is the \emph{constitution} channel's, so the
-physics gate's activity on those prompts is not in the record at all, and nothing
-here distinguishes ``the physics channel does this by itself'' from ``it does this
-only with the constitution channel open beside it''. The arm that separates them is
-the same suite with only the physics channel open
-(\code{results/dual/guardrail\_phys.sh}): \pending{physics-only attribution arm}.
+\textbf{Which channel, and the subject names are not the answer.} All five gained
+items are \code{high\_school\_mathematics} (four) and \code{college\_physics} (one),
+which points at the physics channel --- it is the one with a reason to engage a
+mathematics prompt. That inference does not survive Section~\ref{sec:const9b}'s
+410-coordinate arm. \emph{Four of these five items are gained there too}, by the
+constitution channel alone with no physics channel present at all; only
+\code{college\_physics:94} is unique to the dual stack. Two of the four also move
+under the full-width constitution write. So these MMLU items are fragile under any
+sufficiently strong write at this depth, the subjects they belong to are a property
+of which items are fragile rather than of which partner is attached, and a reading
+that assigned them to the physics channel would have been wrong.
+
+What does separate the arms is the size of the divergence, and it orders by write
+strength rather than by channel count: MMLU KL to base is 0.0045 for the full-width
+constitution write at cap 0.2, 0.0244 for 410 coordinates at cap 0.522, and 0.0723
+here, where two full-width writes at cap 0.2 land at two different depths. The dual
+stack is the largest perturbation of the three and the only one carrying two
+payloads, and we still cannot say from this run how much of its MMLU divergence is
+the physics channel's own write: the gate the bench records is the
+\emph{constitution} channel's, so the physics gate's activity on those prompts is
+not in the record. The arm that settles it runs the same suite with only the physics
+channel open (\code{results/dual/guardrail\_phys.sh}):
+\pending{physics-only attribution arm}.
 
 
 What the values channel carries is the deflationary half of this paper, with one boundary now drawn more carefully than it was. A narrow write into probe-identified coordinates transmits a prompted teacher's manner and not its judgment \emph{at the perturbation budget the cap allowed it}; the width at which judgment did transmit is also the width that imported the teacher's over-refusal; the coordinates were chosen on a causal claim that does not reproduce at either scale; and a partner that has memorised the document is interchangeable with --- at nine dimensions, slightly worse than --- one that has never read it, because the document enters through the teacher's context rather than the partner's weights. Three of those four are findings about this design. The first is, for now, a finding about how we configured it.
