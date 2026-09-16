@@ -351,16 +351,84 @@ ordinary one. That is 0 extra refusals against full width's 2 of 50, which is no
 distinguishable difference, and we flag it as the most promising thin result here
 rather than a finding.
 
-The exception is MMLU, and it locates the cost of the trade precisely. Accuracy goes
-0.64 to 0.70, six items gained and none lost ($p = 0.031$), at an MMLU KL of 0.0244
---- 5.4$\times$ the 0.0045 of a full-width write carrying the same total energy in
-2.6$\times$ smaller per-coordinate steps. Total energy does not predict this and
-per-coordinate magnitude does, which is what one would expect if the cost of a
-concentrated write is leaving the residual stream's own distribution locally. An
-alignment channel that must be narrow therefore does not get its tightness for free
-either: it trades a uniform small disturbance everywhere for a concentrated large one
-somewhere, and the benchmarks disagree about which they prefer.
+The exception is MMLU. Accuracy goes 0.64 to 0.70, six items gained and none lost
+($p = 0.031$), at an MMLU KL of 0.0244 --- 5.4$\times$ the 0.0045 of a full-width
+write carrying the same total energy in 2.6$\times$ smaller per-coordinate steps.
+Total energy therefore does not predict the collateral. We first attributed it to
+per-coordinate magnitude, on the reasoning that a concentrated write leaves the
+residual stream's local distribution; the identity control of
+Section~\ref{sec:identity} refutes that, and the correct predictor is \emph{which}
+coordinates are written.
 
+
+\section{Does it have to be the probe's coordinates?}
+\label{sec:identity}
+
+At 410 coordinates the identity control costs nothing to construct, which is the
+one piece of luck in this campaign. The probe's \emph{worst} 410 coordinates are
+disjoint from its best 410, sum to 549.31 of activation RMS against 553.17, and
+contain no attention sink --- so they match the treatment on count, on summed
+magnitude, and after the cap on total write energy (1.0002 against 1.0000), with a
+per-coordinate cap 5.6\% \emph{higher}. Nothing had to be matched by construction;
+the probe's ranking is magnitude-biased at both ends, and the two ends happen to
+agree.
+
+\begin{table}[t]
+\centering
+\caption{The probe's best 410 coordinates against its worst, at energy parity.
+Everything but the coordinate set is identical, and the control is written slightly
+harder per coordinate. CE is the trainer's 32-item held-out split at step 1000 and
+the 50-item red-team split at 24 generated tokens; churn, refusal and KL are
+$n = 100$ at the guard-rail's budgets.}
+\label{tab:identity}
+\small
+\begin{tabular}{lrrr}
+\toprule
+& probe-best 410 & probe-worst 410 & ratio \\
+\midrule
+cap (recovered) & 0.5220 & 0.5514 & --- \\
+write energy vs full width & 1.0000 & 1.0002 & --- \\
+\midrule
+CE gain, held-out & 0.0590 & 0.0474 & 1.24$\times$ \\
+CE gain, red-team split & 0.0579 & 0.0496 & 1.17$\times$ \\
+red-team KL & 0.05755 & 0.03713 & 1.5$\times$ \\
+red-team refusal & 0.690 ($1{:}4$, $p = 0.375$) & 0.700 ($1{:}5$, $p = 0.219$) & --- \\
+\midrule
+MMLU KL & 0.02441 & \textbf{0.00024} & \textbf{102$\times$} \\
+MMLU accuracy & 0.70 ($0{:}6$, $p = 0.031$) & \textbf{0.64} ($0{:}0$) & --- \\
+GSM8K KL & 0.00014 & 0.00009 & 1.6$\times$ \\
+BoolQ KL & 0.00032 & 0.00014 & 2.3$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{The probe's coordinates fit the teacher better.} On cross-entropy the
+treatment leads by 1.24$\times$ held-out and 1.17$\times$ on the red-team split, and
+a magnitude-matched replicate draw puts the control mean at $0.0445 \pm 0.0021$
+against the treatment's 0.0597 at step 500, a ratio of 1.34$\times$. So the probe's
+ranking does carry information about where a write lands most efficiently, measured
+against the teacher's own tokens. \pending{the third matched draw, and a spread
+worth quoting: two controls give a standard deviation that is arithmetic rather
+than evidence}
+
+\textbf{They do not behave better, and they disturb the model far more.} The
+control reaches 0.700 refusal against the treatment's 0.690, flipping five
+red-team prompts toward refusal against four --- neither resolvable at $n = 100$,
+and the control nominally ahead. It does so with 65\% of the red-team divergence.
+And it leaves MMLU alone: KL 0.00024 against 0.02441, a hundredfold separation on
+a precise per-token measure, with no MMLU item moving where the treatment moved six
+one-directionally at $p = 0.031$. GSM8K and BoolQ divergence are lower too.
+
+\textbf{So the write site inverts, on the axis this paper cares about.} The
+coordinates the value probe ranks highest are the ones where writing also perturbs
+multiple-choice reasoning; the coordinates it ranks lowest deliver the same or more
+of the behaviour with a hundredth of the collateral. Cross-entropy against a teacher
+is a fit metric, and the 1.24$\times$ the probe earns on it is the only axis on
+which its coordinates win. If the matched replicates reproduce the control's
+near-zero collateral, the honest reading is not that coordinate identity is
+irrelevant --- it plainly is not, at 102$\times$ --- but that the probe has been
+selecting, throughout this campaign, for the coordinates one would least want an
+alignment channel to write into.
 
 \section{Both partners at once: \psilm{}-2}
 \label{sec:dual}
