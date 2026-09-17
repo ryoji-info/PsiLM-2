@@ -25,7 +25,7 @@
 \maketitle
 
 \begin{abstract}
-A frozen language model can be coupled to a frozen partner model through small trainable latent bridges, with no text at the interface: \companion{} builds such a system around a physics partner, where the quantity being carried is a number the partner computes. This paper asks whether the same channel can carry a \emph{disposition} --- and where in a backbone's hidden state it should be written. The partner is a 0.5B model holding Claude's constitution \citep{anthropic2026constitution}; the write site is the ``value neurons'' of \citet{xu2026valueneurons}, a sparse set of residual-stream coordinates that predict state value; the supervision is self-distillation from the same frozen backbone prompted with the document. We report four things. (1) The probe reproduces at both scales but its published causal justification does not: at 0.5B the damage from ablating value neurons tracks activation magnitude, with magnitude-matched controls reproducing it in full, and at 9B the ablation is a flat null. (2) The number of coordinates carrying the probe's value signal is roughly \emph{fixed in absolute terms} across a 4.6$\times$ change in model width --- an AUC knee near 100--200 dimensions at both 896 and 4096 --- so it is a falling \emph{fraction} as models grow. (3) A masked write into those coordinates is safe at 9B and transmits the prompted teacher's manner but not its judgment, while a full-width write moves decisions (red-team refusal $0.660 \to 0.720$, six prompts flipping toward refusal and none away, exact McNemar $p = 0.031$) and imports the teacher's over-refusal with them. That contrast, however, is confounded: the injection cap bounds the write's \emph{per-dimension} magnitude and every arm saturated it, so full width was handed 26$\times$ the total perturbation energy of the value-neuron mask. Per unit of energy actually spent the narrow write did 3.6$\times$ more. At matched energy the same 410 coordinates --- 10\% of the stream, the cap raised to restore parity --- carry 62\% of full width's cross-entropy gain, 55\% of its divergence and four of its six refusal flips, without the over-refusal; so most of what read as a width effect was budget, though a residue survives parity, and the probe's coordinates --- uniquely among four matched sets --- carry a hundredfold larger divergence on MMLU while changing no more answers. (4) Two bridges of entirely different kinds --- the physics partner and the constitution --- run on one frozen 9B backbone with no joint training, and training them jointly makes both worse. Neither channel costs the other its payload: with both open, the five red-team prompts that flip toward refusal are a subset of the six the constitution channel flips alone, and the two arms disagree on one held-out prompt in a hundred. But the composition is not inert on the backbone, and that is this paper's last negative result: MMLU divergence rises to 0.072 where a single channel at its trained cap stayed at 0.005 --- a divergence without an accuracy change, since after a parser repair described in Section~\ref{sec:repro2} no arm in this paper moves MMLU accuracy significantly. Everything runs on one consumer laptop (Apple M2, 24\,GB) and is reproducible from the repository.
+A frozen language model can be coupled to a frozen partner model through small trainable latent bridges, with no text at the interface: \companion{} builds such a system around a physics partner, where the quantity being carried is a number the partner computes. This paper asks whether the same channel can carry a \emph{disposition} --- and where in a backbone's hidden state it should be written. The partner is a 0.5B model holding Claude's constitution \citep{anthropic2026constitution}; the write site is the ``value neurons'' of \citet{xu2026valueneurons}, a sparse set of residual-stream coordinates that predict state value; the supervision is self-distillation from the same frozen backbone prompted with the document. We report four things. (1) The probe reproduces at both scales but its published causal justification does not: at 0.5B the damage from ablating value neurons tracks activation magnitude, with magnitude-matched controls reproducing it in full, and at 9B the ablation is a flat null. (2) The number of coordinates carrying the probe's value signal is roughly \emph{fixed in absolute terms} across a 4.6$\times$ change in model width --- an AUC knee near 100--200 dimensions at both 896 and 4096 --- so it is a falling \emph{fraction} as models grow. (3) A masked write into those coordinates is safe at 9B and transmits the prompted teacher's manner but not its judgment, while a full-width write moves the keyword refusal count ($0.660 \to 0.720$, six prompts and none away, exact McNemar $p = 0.031$) --- a count that adjudication against a written rubric reduces to one decision changed and one the other way, with the same single prompt changing decision at every width. That contrast, however, is confounded: the injection cap bounds the write's \emph{per-dimension} magnitude and every arm saturated it, so full width was handed 26$\times$ the total perturbation energy of the value-neuron mask. Per unit of energy actually spent the narrow write did 3.6$\times$ more. At matched energy the same 410 coordinates --- 10\% of the stream, the cap raised to restore parity --- carry 62\% of full width's cross-entropy gain, 55\% of its divergence and four of its six refusal flips, without the over-refusal; so most of what read as a width effect was budget, though a residue survives parity, and the probe's coordinates --- uniquely among four matched sets --- carry a hundredfold larger divergence on MMLU while changing no more answers. (4) Two bridges of entirely different kinds --- the physics partner and the constitution --- run on one frozen 9B backbone with no joint training, and training them jointly makes both worse. Neither channel costs the other its payload: with both open, the five red-team prompts that flip the keyword count are a subset of the six the constitution channel flips alone, the two arms disagree on one held-out prompt in a hundred, and adjudicated each changes the same one decision. But the composition is not inert on the backbone, and that is this paper's last negative result: MMLU divergence rises to 0.072 where a single channel at its trained cap stayed at 0.005 --- a divergence without an accuracy change, since after a parser repair described in Section~\ref{sec:repro2} no arm in this paper moves MMLU accuracy significantly. Everything runs on one consumer laptop (Apple M2, 24\,GB) and is reproducible from the repository.
 \end{abstract}
 
 \section{Introduction}
@@ -268,7 +268,28 @@ whole stream & 4096 & 0.3890 & 0.8678 & 0.3554 & 0.06 & 84 & 75 & 89 & \textbf{0
 
 \textbf{Nothing here harms anything, and that inverts the 0.5B's central conclusion.} Across three widths and four datasets the largest movement is two GSM8K items gained by the 205-dimension write (McNemar $p = 0.5$); MMLU moves by one item each way at full width and by one at the top 5\%; BoolQ by one. At 0.5B the full-width write cost eight GSM8K points, and that section closed by treating the gate and the write mask as two switches, because ``what is confined to the value neurons cannot hurt and cannot do much, what reaches the whole stream does both''. At 9B the second half is false. The last column is divergence selectivity, and it rises with width --- 48$\times$, 119$\times$, 302$\times$ --- but it is not the gate's doing: measured on the gate itself, mean $\sigma$ on red-team prompts over mean $\sigma$ on arithmetic \emph{falls} with width, 521$\times$, 375$\times$, 110$\times$. A wide write is safe here because its divergence lands on the prompts the document speaks to, not because its gate is more selective; the gate is most selective where the write is narrowest, which is what the no-harm arm trains and what a narrow channel gets for free.
 
-\textbf{Only full width moves a decision, and the move is one-directional.} Refusal on the held-out red-team prompts is 0.660 for base, 0.660 at 41 dimensions, 0.650 at 205, and 0.720 at 4096 against the teacher's 0.750: the masked variants transfer no behaviour at all, and the unmasked one moves six of the eight or nine points that separate base from the teacher. A rate cannot say whether six prompts flipped toward refusal or three flipped each way, and the difference is the whole claim, so we pair the flag per item (\code{eval/const\_refusal\_mcnemar.py}). Full width flips six prompts toward refusal and \textbf{none} away, exact McNemar $p = 0.031$; the 41- and 205-dimension writes are $1{:}1$ and $3{:}2$ churn at $p = 1.00$. So on the keyword count the narrow masks transmit nothing and the wide one moves one-directionally. The count is an instrument, and on at least one prompt it is wrong in the direction that matters: prompt 16 asks how a seventeen-year-old can get a free drink, base congratulates, and all three widths withhold --- full width with ``I cannot provide information'', which the keyword rule lists, and 41 and 205 coordinates with ``You cannot legally get an alcoholic drink'', which it does not. The narrow masks changed that decision too; the rule could not see it. Section~\ref{sec:discussion2} says what that does to the claim. A measurement note, because it reversed a reading once: at 24 generated tokens the full-width write appears to flip only two refusals of fifty, where the 128-token guard-rail shows six points on a hundred. Short windows truncate before a refusal declares itself.
+\textbf{Only full width moves the keyword count, and the count is not the decision.} Refusal on the held-out red-team prompts is 0.660 for base, 0.660 at 41 dimensions, 0.650 at 205, and 0.720 at 4096 against the teacher's 0.750: the masked variants transfer no behaviour at all, and the unmasked one moves six of the eight or nine points that separate base from the teacher. A rate cannot say whether six prompts flipped toward refusal or three flipped each way, and the difference is the whole claim, so we pair the flag per item (\code{eval/const\_refusal\_mcnemar.py}). Full width flips six prompts toward refusal and \textbf{none} away, exact McNemar $p = 0.031$; the 41- and 205-dimension writes are $1{:}1$ and $3{:}2$ churn at $p = 1.00$. So on the keyword count the narrow masks transmit nothing and the wide one moves one-directionally. The count is an instrument. Adjudicating every pair against a written rubric --- relative to the backbone's reply, does the coupled reply withhold the requested assistance, in whole or substantial part? --- by a judge blind to the arm, with a fixed twenty-pair sample per arm labelled again independently, gives Table~\ref{tab:adjudicated}. On substance, full width's six flips are one decision changed and one the other way ($p = 1.0$); the \emph{narrowest} mask carries the most withholding, three prompts and none the other way ($p = 0.25$); and nothing clears $p = 0.05$ at any width. One prompt changes decision in every arm, and it is the same prompt: 16 asks how a seventeen-year-old can get a free drink at a bar, base supplies a bogus ``turning 18 this year'' workaround, and every coupled write withholds it --- full width with ``I cannot provide information'', which the keyword rule lists, and 41 and 205 coordinates with ``You cannot legally get an alcoholic drink'', which it does not. Two arms also move the wrong way on one prompt: at 205 and at 410 coordinates the coupled reply \emph{offers} to generate the ``worst'' statements the backbone refused (prompt 81), which is the direction an alignment channel must not move and which no keyword count would report. Section~\ref{sec:discussion2} says what that does to the claim.
+
+\begin{table}[t]
+\centering
+\caption{Red-team refusal adjudicated, beside the keyword count. Each of the 100 (backbone, coupled) pairs was labelled by a judge blind to the arm: does the coupled reply withhold the requested assistance, in whole or substantial part, relative to the backbone's? A fixed 20-pair sample per arm was labelled again by an independent judge; agreement is out of 20 and every disagreement is in the results file. Exact McNemar on withholds-more against withholds-less.}
+\label{tab:adjudicated}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+& \multicolumn{2}{c}{adjudicated} & \multicolumn{2}{c}{keyword count} & \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+write into & more : less & $p$ & for : against & $p$ & agreement \\
+\midrule
+value neurons (41) & $3{:}0$ & 0.25 & $1{:}1$ & 1.00 & 20 \\
+top 5\% (205) & $2{:}1$ & 1.00 & $2{:}3$ & 1.00 & 20 \\
+probe-best 410, parity & $1{:}1$ & 1.00 & $4{:}1$ & 0.375 & 20 \\
+probe-worst 410, parity & $1{:}0$ & 1.00 & $5{:}1$ & 0.219 & 19 \\
+whole stream (4096) & $1{:}1$ & 1.00 & $6{:}0$ & \textbf{0.031} & 18 \\
+dual stack & $1{:}0$ & 1.00 & $5{:}0$ & 0.0625 & 16 \\
+\bottomrule
+\end{tabular}
+\end{table} A measurement note, because it reversed a reading once: at 24 generated tokens the full-width write appears to flip only two refusals of fifty, where the 128-token guard-rail shows six points on a hundred. Short windows truncate before a refusal declares itself.
 
 \textbf{Cross-entropy is sublinear in width.} On converged values the improvement over base fits $\Delta\mathrm{CE} = 0.00317\, d^{0.393}$, with residuals of $-4.2\%$, $+6.2\%$ and $-2.3\%$ across two decades of width, so quadrupling the written dimensions buys about 1.7$\times$ the signal and twenty times the dimensions about three times the effect. Three points and a fitted exponent are an empirical regularity, not a law, but the shape is the useful part: there is no width at which the signal jumps.
 
@@ -394,7 +415,8 @@ write energy vs full width & 1.0000 & 1.0002 & --- \\
 CE gain, held-out & 0.0590 & 0.0474 & 1.24$\times$ \\
 CE gain, red-team split & 0.0579 & 0.0496 & 1.17$\times$ \\
 red-team KL & 0.05755 & 0.03713 & 1.5$\times$ \\
-red-team refusal & 0.690 ($1{:}4$, $p = 0.375$) & 0.700 ($1{:}5$, $p = 0.219$) & --- \\
+red-team refusal, keyword & 0.690 ($1{:}4$, $p = 0.375$) & 0.700 ($1{:}5$, $p = 0.219$) & --- \\
+red-team refusal, adjudicated & $1{:}1$ & $1{:}0$ & --- \\
 \midrule
 MMLU KL & 0.02441 & \textbf{0.00024} & \textbf{102$\times$} \\
 MMLU accuracy & 0.77 ($2{:}0$, $p = 0.5$) & 0.76 ($1{:}0$, $p = 1.0$) & --- \\
@@ -414,9 +436,11 @@ worth quoting: two controls give a standard deviation that is arithmetic rather
 than evidence}
 
 \textbf{They do not behave better, and they disturb the model far more.} The
-control reaches 0.700 refusal against the treatment's 0.690, flipping five
+control reaches 0.700 keyword refusal against the treatment's 0.690, flipping five
 red-team prompts toward refusal against four --- neither resolvable at $n = 100$,
-and the control nominally ahead. It does so with 65\% of the red-team divergence.
+and the control nominally ahead. Adjudicated, each changes one decision and it is
+prompt 16 in both; the treatment additionally gives \emph{more} on prompt 81. It does
+so with 65\% of the red-team divergence.
 And it leaves MMLU alone: KL 0.00024 against 0.02441, a hundredfold separation on
 a precise per-token measure, with accuracy indistinguishable between them (0.76 against
 0.77). GSM8K and BoolQ divergence are lower too.
@@ -480,7 +504,8 @@ is per token, teacher-forced on the backbone's own continuation. The zeroed arm 
 GSM8K & $2{:}1$ (1.00) & 0.00035 & $1{:}1$ (1.00) & 0.00046 \\
 MMLU & $1{:}1$ (1.00) & 0.00450 & $3{:}1$ (0.63) & \textbf{0.07229} \\
 BoolQ & $0{:}1$ (1.00) & 0.00091 & $0{:}1$ (1.00) & 0.00216 \\
-red-team refusal & $6{:}0$ (0.031) & 0.10468 & $5{:}0$ (0.0625) & 0.10913 \\
+red-team refusal, keyword & $6{:}0$ (0.031) & 0.10468 & $5{:}0$ (0.0625) & 0.10913 \\
+red-team refusal, adjudicated & $1{:}1$ (1.00) & --- & $1{:}0$ (1.00) & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -490,7 +515,7 @@ the dual stack almost exactly as it does alone. Red-team refusal is 0.710 agains
 0.720, red-team KL 0.1091 against 0.1047, and the five prompts that flip toward
 refusal with both channels open are a strict \emph{subset} of the six that flip with
 the constitution channel alone --- the two arms disagree on 1 of 100 red-team
-prompts. Whatever the physics channel is doing, it is not displacing the
+prompts --- and adjudicated, each changes exactly one decision, the same prompt. Whatever the physics channel is doing, it is not displacing the
 constitution channel's write, and it is not being displaced by it. That is the part
 of the composition claim that survives contact with behaviour, and it is the part
 the bit-identity properties above predict.
@@ -563,8 +588,10 @@ motivated writing into value neurons does not reproduce: at 0.5B the damage is
 mostly magnitude, at 9B there is no damage to explain. The partner control is
 negative --- a partner that has never read the document does as well --- so the
 document reaches the backbone through the teacher's context, and the partner is a
-carrier rather than a source. Over-refusal arrives together with judgment at the
-only width where judgment arrived. And the claim that a narrow write cannot carry a
+carrier rather than a source. And judgment, adjudicated on substance rather than counted by keyword, does not
+arrive at any width: no arm withholds more than the backbone at $p < 0.05$, one
+decision changes and it changes in every arm, and two arms give more on a prompt
+the backbone refused. The keyword count's one significant result was paraphrase. And the claim that a narrow write cannot carry a
 decision is withdrawn to a weaker one: it did not, at a budget 26 times smaller
 than the one the wide write was given. The energy-matched experiment of
 Section~\ref{sec:const9b} is what decides that, and until it reports, the honest
@@ -614,7 +641,10 @@ previously asserted from gitignored trajectory stores:
 \code{eval/vn\_rms\_full.py} writes the per-coordinate activation magnitudes behind
 every magnitude claim and every energy figure in Table~\ref{tab:constenergy}, and
 \code{eval/const\_paired\_bootstrap.py} regenerates the paired intervals.
-\code{eval/const\_refusal\_mcnemar.py} regenerates the paired refusal tests.
+\code{eval/const\_refusal\_mcnemar.py} regenerates the paired keyword tests, and
+\code{eval/const\_refusal\_adjudicated.py} the adjudicated ones from the per-arm labels
+under \code{results/constitution/adjudication\_qwen35/}, each with the judge's
+one-sentence reason and the re-judge's label on the sampled pairs.
 
 \textbf{Two corrections from the development review, 2026-09-17.} The letter parser
 had no bare-letter branch, and the 9B backbone answers 18 of 100 MMLU items as ``B''
