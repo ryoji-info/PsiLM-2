@@ -402,68 +402,77 @@ agree.
 Everything but the coordinate set is identical, and the control is written slightly
 harder per coordinate. CE is the trainer's 32-item held-out split at step 1000 and
 the 50-item red-team split at 24 generated tokens; churn, refusal and KL are
-$n = 100$ at the guard-rail's budgets. Matched draw 0 is the first of three
-magnitude-matched random sets of 410 (\S\ref{sec:identity}), trained to the same
-step; its guard-rail ran red-team and MMLU only, and its cap was set for energy
-parity rather than recovered.}
+$n = 100$ at the guard-rail's budgets. The matched draws are three
+magnitude-matched random sets of 410, trained to the same step with caps set for
+energy parity rather than recovered; their guard-rails ran red-team and MMLU only.
+The last column divides the probe-best value by the mean of the four controls
+($z$ from the four-control spread), or by the probe-worst set alone where it alone
+has the measurement.}
 \label{tab:identity}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrr}
 \toprule
-& probe-best 410 & probe-worst 410 & matched draw 0 & best/worst \\
+& probe-best 410 & probe-worst 410 & matched draws 0, 1, 2 & best / controls \\
 \midrule
-cap & 0.5220 & 0.5514 & 0.5606 & --- \\
-write energy vs full width & 1.0000 & 1.0002 & 1.0000 & --- \\
+cap & 0.5220 & 0.5514 & 0.5606, 0.5583, 0.5605 & --- \\
+write energy vs full width & 1.0000 & 1.0002 & 1.0000 (set) & --- \\
 \midrule
-CE gain, held-out & 0.0590 & 0.0474 & 0.0475 & 1.24$\times$ \\
-CE gain, red-team split & 0.0579 & 0.0496 & \pending{step 1000} & 1.17$\times$ \\
-red-team KL & 0.05755 & 0.03713 & 0.03407 & 1.5$\times$ \\
-red-team refusal, keyword & 0.690 ($1{:}4$, $p = 0.375$) & 0.700 ($1{:}5$, $p = 0.219$) & 0.680 ($2{:}4$, $p = 0.688$) & --- \\
+CE gain, held-out & 0.0590 & 0.0474 & 0.0475, 0.0397, 0.0430 & 1.33$\times$ ($z = 3.9$) \\
+CE gain, red-team split & 0.0579 & 0.0496 & \pending{step-1000 re-evaluation} & 1.17$\times$ \\
+red-team KL & 0.05755 & 0.03713 & 0.03407, 0.02489, 0.02866 & 1.8$\times$ \\
+red-team refusal, keyword & 0.690 & 0.700 & 0.680, 0.710, 0.700 & --- \\
+\quad flips away{:}toward & $1{:}4$ ($p = 0.375$) & $1{:}5$ ($p = 0.219$) & $2{:}4$, $1{:}6$, $1{:}5$ & --- \\
 red-team refusal, adjudicated & $1{:}1$ & $1{:}0$ & \pending{} & --- \\
 \midrule
-MMLU KL & 0.02441 & \textbf{0.00024} & \textbf{0.00026} & \textbf{102$\times$} \\
-MMLU accuracy & 0.77 ($2{:}0$, $p = 0.5$) & 0.76 ($1{:}0$, $p = 1.0$) & 0.76 ($1{:}0$, $p = 1.0$) & --- \\
+MMLU KL & 0.02441 & \textbf{0.00024} & \textbf{0.00026, 0.00022, 0.00027} & \textbf{98$\times$} \\
+MMLU accuracy & 0.77 & 0.76 & 0.76, 0.75, 0.75 & --- \\
+\quad flips gained{:}lost & $2{:}0$ ($p = 0.5$) & $1{:}0$ ($p = 1.0$) & $1{:}0$, $0{:}0$, $0{:}0$ & --- \\
 GSM8K KL & 0.00014 & 0.00009 & --- & 1.6$\times$ \\
 BoolQ KL & 0.00032 & 0.00014 & --- & 2.3$\times$ \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
-\textbf{The probe's coordinates fit the teacher better.} On cross-entropy the
-treatment leads by 1.24$\times$ held-out and 1.17$\times$ on the red-team split, and
-a magnitude-matched replicate draw puts the control mean at $0.0445 \pm 0.0021$
-against the treatment's 0.0597 at step 500, a ratio of 1.34$\times$. So the probe's
-ranking does carry information about where a write lands most efficiently, measured
-against the teacher's own tokens. \pending{the third matched draw, and a spread
-worth quoting: two controls give a standard deviation that is arithmetic rather
-than evidence}
+\textbf{The probe's coordinates fit the teacher better.} On held-out cross-entropy
+at step 1000 the treatment's gain is 0.0590 against $0.0444 \pm 0.0038$ across the
+four controls (the probe-worst set and three matched draws; range 0.0397--0.0475),
+a ratio of 1.33$\times$ at $z = 3.9$; the same comparison at step 500 gave
+1.34$\times$, so the margin is not a training-length artefact. On the red-team
+split it leads the probe-worst set by 1.17$\times$. \pending{the red-team split for
+the three draws, re-evaluated at step 1000}. So the probe's ranking does carry
+information about where a write lands most efficiently, measured against the
+teacher's own tokens.
 
 \textbf{They do not behave better, and they disturb the model far more.} The
-control reaches 0.700 keyword refusal against the treatment's 0.690, flipping five
-red-team prompts toward refusal against four --- neither resolvable at $n = 100$,
-and the control nominally ahead. Adjudicated, each changes one decision and it is
-prompt 16 in both; the treatment additionally gives \emph{more} on prompt 81. It does
-so with 65\% of the red-team divergence.
-And it leaves MMLU alone: KL 0.00024 against 0.02441, a hundredfold separation on
-a precise per-token measure, with accuracy indistinguishable between them (0.76 against
-0.77). GSM8K and BoolQ divergence are lower too.
+controls reach 0.68--0.71 keyword refusal against the treatment's 0.690, flipping
+four to six red-team prompts toward refusal against the treatment's four --- none
+resolvable at $n = 100$, and the controls nominally ahead. Adjudicated, the
+probe-worst set and the treatment each change one decision and it is prompt 16 in
+both; the treatment additionally gives \emph{more} on prompt 81. The controls do it
+with 43--65\% of the treatment's red-team divergence. And they leave MMLU alone:
+the four controls sit at $0.00025 \pm 0.00002$ against 0.02441, a 98-fold
+separation on a precise per-token measure, with every control below the treatment
+on 100 of 100 items and accuracy indistinguishable throughout (0.75--0.77). GSM8K
+and BoolQ divergence are lower for the probe-worst set too.
 
 \textbf{So the write site inverts, on the axis this paper cares about.} The
 coordinates the value probe ranks highest are the ones where writing also perturbs
 multiple-choice reasoning; the coordinates it ranks lowest deliver the same or more
 of the behaviour with a hundredth of the collateral. Cross-entropy against a teacher
 is a fit metric, and the 1.24$\times$ the probe earns on it is the only axis on
-which its coordinates win. The first matched replicate reproduces the control's
-near-zero collateral: MMLU KL 0.00026, below the probe-best set on 100 of 100
-items with a median per-item ratio of 151$\times$, and indistinguishable from the
-probe-worst set item by item (below it on 44 of 100; Spearman 0.70 between the
-two). Its red-team divergence, 0.034, also sits on the probe-worst set's 0.037, so
-the probe-best set's excess is 1.7$\times$ on the behaviour the write was trained
-for and two orders of magnitude on the task it was not. \pending{matched draws 1
-and 2, due within the day; the adjudicated refusal for all three}. The honest
-reading is not that coordinate identity is irrelevant --- it plainly is not, at
-100$\times$ --- but that the probe has been selecting, throughout this campaign,
-for the coordinates one would least want an alignment channel to write into.
+which its coordinates win. All three matched replicates reproduce the probe-worst
+set's near-zero collateral: MMLU KL 0.00026, 0.00022 and 0.00027, each below the
+probe-best set on 100 of 100 items with median per-item ratios of 151$\times$,
+176$\times$ and 133$\times$, and indistinguishable from the probe-worst set and from
+one another item by item (any two controls: median ratio 1.00, Spearman 0.7--0.8).
+Their red-team divergence, 0.025--0.034, sits at or below the probe-worst set's
+0.037, so the probe-best set's excess is 1.8$\times$ on the behaviour the write was
+trained for and two orders of magnitude on the task it was not. \pending{the
+adjudicated refusal for the three draws}. The honest reading is not that coordinate
+identity is irrelevant --- it plainly is not, at 98$\times$ --- but that the probe
+has been selecting, throughout this campaign, for the coordinates one would least
+want an alignment channel to write into.
 
 \section{Both partners at once: \psilm{}-2}
 \label{sec:dual}
