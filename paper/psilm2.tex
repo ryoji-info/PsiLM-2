@@ -402,26 +402,29 @@ agree.
 Everything but the coordinate set is identical, and the control is written slightly
 harder per coordinate. CE is the trainer's 32-item held-out split at step 1000 and
 the 50-item red-team split at 24 generated tokens; churn, refusal and KL are
-$n = 100$ at the guard-rail's budgets.}
+$n = 100$ at the guard-rail's budgets. Matched draw 0 is the first of three
+magnitude-matched random sets of 410 (\S\ref{sec:identity}), trained to the same
+step; its guard-rail ran red-team and MMLU only, and its cap was set for energy
+parity rather than recovered.}
 \label{tab:identity}
 \small
-\begin{tabular}{lrrr}
+\begin{tabular}{lrrrr}
 \toprule
-& probe-best 410 & probe-worst 410 & ratio \\
+& probe-best 410 & probe-worst 410 & matched draw 0 & best/worst \\
 \midrule
-cap (recovered) & 0.5220 & 0.5514 & --- \\
-write energy vs full width & 1.0000 & 1.0002 & --- \\
+cap & 0.5220 & 0.5514 & 0.5606 & --- \\
+write energy vs full width & 1.0000 & 1.0002 & 1.0000 & --- \\
 \midrule
-CE gain, held-out & 0.0590 & 0.0474 & 1.24$\times$ \\
-CE gain, red-team split & 0.0579 & 0.0496 & 1.17$\times$ \\
-red-team KL & 0.05755 & 0.03713 & 1.5$\times$ \\
-red-team refusal, keyword & 0.690 ($1{:}4$, $p = 0.375$) & 0.700 ($1{:}5$, $p = 0.219$) & --- \\
-red-team refusal, adjudicated & $1{:}1$ & $1{:}0$ & --- \\
+CE gain, held-out & 0.0590 & 0.0474 & 0.0475 & 1.24$\times$ \\
+CE gain, red-team split & 0.0579 & 0.0496 & \pending{step 1000} & 1.17$\times$ \\
+red-team KL & 0.05755 & 0.03713 & 0.03407 & 1.5$\times$ \\
+red-team refusal, keyword & 0.690 ($1{:}4$, $p = 0.375$) & 0.700 ($1{:}5$, $p = 0.219$) & 0.680 ($2{:}4$, $p = 0.688$) & --- \\
+red-team refusal, adjudicated & $1{:}1$ & $1{:}0$ & \pending{} & --- \\
 \midrule
-MMLU KL & 0.02441 & \textbf{0.00024} & \textbf{102$\times$} \\
-MMLU accuracy & 0.77 ($2{:}0$, $p = 0.5$) & 0.76 ($1{:}0$, $p = 1.0$) & --- \\
-GSM8K KL & 0.00014 & 0.00009 & 1.6$\times$ \\
-BoolQ KL & 0.00032 & 0.00014 & 2.3$\times$ \\
+MMLU KL & 0.02441 & \textbf{0.00024} & \textbf{0.00026} & \textbf{102$\times$} \\
+MMLU accuracy & 0.77 ($2{:}0$, $p = 0.5$) & 0.76 ($1{:}0$, $p = 1.0$) & 0.76 ($1{:}0$, $p = 1.0$) & --- \\
+GSM8K KL & 0.00014 & 0.00009 & --- & 1.6$\times$ \\
+BoolQ KL & 0.00032 & 0.00014 & --- & 2.3$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -450,11 +453,17 @@ coordinates the value probe ranks highest are the ones where writing also pertur
 multiple-choice reasoning; the coordinates it ranks lowest deliver the same or more
 of the behaviour with a hundredth of the collateral. Cross-entropy against a teacher
 is a fit metric, and the 1.24$\times$ the probe earns on it is the only axis on
-which its coordinates win. If the matched replicates reproduce the control's
-near-zero collateral, the honest reading is not that coordinate identity is
-irrelevant --- it plainly is not, at 102$\times$ --- but that the probe has been
-selecting, throughout this campaign, for the coordinates one would least want an
-alignment channel to write into.
+which its coordinates win. The first matched replicate reproduces the control's
+near-zero collateral: MMLU KL 0.00026, below the probe-best set on 100 of 100
+items with a median per-item ratio of 151$\times$, and indistinguishable from the
+probe-worst set item by item (below it on 44 of 100; Spearman 0.70 between the
+two). Its red-team divergence, 0.034, also sits on the probe-worst set's 0.037, so
+the probe-best set's excess is 1.7$\times$ on the behaviour the write was trained
+for and two orders of magnitude on the task it was not. \pending{matched draws 1
+and 2, due within the day; the adjudicated refusal for all three}. The honest
+reading is not that coordinate identity is irrelevant --- it plainly is not, at
+100$\times$ --- but that the probe has been selecting, throughout this campaign,
+for the coordinates one would least want an alignment channel to write into.
 
 \section{Both partners at once: \psilm{}-2}
 \label{sec:dual}
