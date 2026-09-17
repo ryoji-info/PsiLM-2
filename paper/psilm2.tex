@@ -152,6 +152,7 @@ chosen layer of each backbone ($L{=}16$ for Qwen2.5-0.5B, $L{=}24$ for Qwen3.5 9
 locates the knee only to within a factor of about two.}
 \label{tab:vnknee}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrrrr}
 \toprule
 & full & 50\% & 20\% & 10\% & 5\% & 2\% & 1\% \\
@@ -161,7 +162,7 @@ Qwen2.5-0.5B ($d = 896$) & 0.674 & 0.685 & 0.676 & 0.663 & 0.634 & 0.611 & 0.628
 Qwen3.5 9B ($d = 4096$) & 0.821 & 0.836 & 0.825 & \textbf{0.852} & 0.825 & 0.768 & 0.788 \\
 \quad coordinates kept & 4096 & 2048 & 819 & 410 & 205 & 82 & 41 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 We state this carefully, because it is the observation on which a scaling argument
@@ -192,7 +193,7 @@ Worth stating before any training number, because it bounds what distillation ca
 \section{Write location at 0.5B}
 \label{sec:const05}
 
-Ten variants, 2,000 steps each at batch 8, learning rate $3\times10^{-4}$, gate bias 0, cap 0.2, a no-harm step every second step under a gate penalty of 1, 1.7\,s/step at a 15.5\,GB peak (\code{results/constitution/summary\_qwen0.5b.json}, $n = 100$ held out):
+Ten variants, 2,000 steps each at batch 8, learning rate $3\times10^{-4}$, gate bias 0, cap 0.2, a no-harm step every second step under a gate penalty of 1, 1.7\,s/step at a 15.5\,GB peak (\code{results/\allowbreak{}constitution/\allowbreak{}summary\_qwen0.5b.json}, $n = 100$ held out):
 
 \begin{table}[t]
 \centering
