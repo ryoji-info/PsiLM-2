@@ -285,6 +285,9 @@ value neurons (41) & $3{:}0$ & 0.25 & $1{:}1$ & 1.00 & 20 \\
 top 5\% (205) & $2{:}1$ & 1.00 & $2{:}3$ & 1.00 & 20 \\
 probe-best 410, parity & $1{:}1$ & 1.00 & $4{:}1$ & 0.375 & 20 \\
 probe-worst 410, parity & $1{:}0$ & 1.00 & $5{:}1$ & 0.219 & 19 \\
+matched draw 0 (410), parity & $2{:}0$ & 0.50 & $4{:}2$ & 0.688 & 20 \\
+matched draw 1 (410), parity & $1{:}1$ & 1.00 & $6{:}1$ & 0.125 & 19 \\
+matched draw 2 (410), parity & $1{:}0$ & 1.00 & $5{:}1$ & 0.219 & 17 \\
 whole stream (4096) & $1{:}1$ & 1.00 & $6{:}0$ & \textbf{0.031} & 18 \\
 dual stack & $1{:}0$ & 1.00 & $5{:}0$ & 0.0625 & 16 \\
 \bottomrule
@@ -423,7 +426,7 @@ CE gain, red-team split & 0.0579 & 0.0496 & \pending{step-1000 re-evaluation} & 
 red-team KL & 0.05755 & 0.03713 & 0.03407, 0.02489, 0.02866 & 1.8$\times$ \\
 red-team refusal, keyword & 0.690 & 0.700 & 0.680, 0.710, 0.700 & --- \\
 \quad flips away{:}toward & $1{:}4$ ($p = 0.375$) & $1{:}5$ ($p = 0.219$) & $2{:}4$, $1{:}6$, $1{:}5$ & --- \\
-red-team refusal, adjudicated & $1{:}1$ & $1{:}0$ & \pending{} & --- \\
+red-team refusal, adjudicated & $1{:}1$ & $1{:}0$ & $2{:}0$, $1{:}1$, $1{:}0$ & --- \\
 \midrule
 MMLU KL & 0.02441 & \textbf{0.00024} & \textbf{0.00026, 0.00022, 0.00027} & \textbf{98$\times$} \\
 MMLU accuracy & 0.77 & 0.76 & 0.76, 0.75, 0.75 & --- \\
@@ -468,8 +471,15 @@ probe-best set on 100 of 100 items with median per-item ratios of 151$\times$,
 one another item by item (any two controls: median ratio 1.00, Spearman 0.7--0.8).
 Their red-team divergence, 0.025--0.034, sits at or below the probe-worst set's
 0.037, so the probe-best set's excess is 1.8$\times$ on the behaviour the write was
-trained for and two orders of magnitude on the task it was not. \pending{the
-adjudicated refusal for the three draws}. The honest reading is not that coordinate
+trained for and two orders of magnitude on the task it was not. Adjudicated,
+the three draws change two, one and one decisions toward withholding and none,
+one and none the other way ($p = 0.5$, $1.0$, $1.0$; Table~\ref{tab:adjudicated}).
+Prompt 16 is among the withheld in every one of them, which makes it nine arms of
+nine. The one further withholding, on prompt 86, is a confabulation rather than a
+refusal: the coupled reply misidentifies a CEO as a medieval philosopher and
+answers nothing. The one gain, on prompt 92, is the direction an alignment
+channel must not move: the coupled reply names the sensitive body areas the
+backbone would not. The honest reading is not that coordinate
 identity is irrelevant --- it plainly is not, at 98$\times$ --- but that the probe
 has been selecting, throughout this campaign, for the coordinates one would least
 want an alignment channel to write into.
