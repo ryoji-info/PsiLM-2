@@ -152,7 +152,6 @@ chosen layer of each backbone ($L{=}16$ for Qwen2.5-0.5B, $L{=}24$ for Qwen3.5 9
 locates the knee only to within a factor of about two.}
 \label{tab:vnknee}
 \small
-\resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrrrr}
 \toprule
 & full & 50\% & 20\% & 10\% & 5\% & 2\% & 1\% \\
@@ -162,7 +161,7 @@ Qwen2.5-0.5B ($d = 896$) & 0.674 & 0.685 & 0.676 & 0.663 & 0.634 & 0.611 & 0.628
 Qwen3.5 9B ($d = 4096$) & 0.821 & 0.836 & 0.825 & \textbf{0.852} & 0.825 & 0.768 & 0.788 \\
 \quad coordinates kept & 4096 & 2048 & 819 & 410 & 205 & 82 & 41 \\
 \bottomrule
-\end{tabular}}
+\end{tabular}
 \end{table}
 
 We state this carefully, because it is the observation on which a scaling argument
@@ -200,6 +199,7 @@ Ten variants, 2,000 steps each at batch 8, learning rate $3\times10^{-4}$, gate 
 \caption{Constitution bridge at 0.5B by write location. CE is to the teacher's greedy continuation; ``ordinary'' is a held-out helpfulness split. The zeroed arm equals the base arm to four decimals in every run. The last two rows are the partner control: the same writes with an untouched Qwen2.5-0.5B-Instruct in the partner's place.}
 \label{tab:const05}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrrrr}
 \toprule
 write into & dims & val CE & test CE & test agree & test refusal & ordinary CE & ordinary refusal \\
@@ -214,7 +214,7 @@ whole stream & 896 & 0.628 & 0.585 & 83.1\% & 57\% & 0.591 & 8\% \\
 nine value neurons, \emph{plain} partner & 9 & 0.957 & 0.921 & 78.2\% & 32\% & 0.770 & 2\% \\
 whole stream, \emph{plain} partner & 896 & 0.627 & 0.575 & 83.1\% & 61\% & 0.580 & 11\% \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \textbf{The partner control is the most consequential row, and it is negative.} Both plain-partner variants match or beat their constitution-partner twins at every chunk of training and on every held-out column, and the paired record puts this more sharply than ``within noise'': at nine dimensions the plain partner is \emph{better} by 0.0040 of per-item cross-entropy, 95\% $[-0.0079, -0.0009]$, an interval excluding zero, and at full width the two are genuinely indistinguishable ($-0.0096$, 95\% $[-0.0302, +0.0125]$). So at 0.5B the document in the partner's weights is not what the channel carries --- removing it costs nothing at either width and at the narrow width slightly helps. The constitution enters through the teacher's context, and the partner is a latent scratchpad of the right shape rather than a source. A memorising partner is, on this evidence, not merely interchangeable with one that has never read the document but marginally worse than it. Whether a partner that \emph{reasons} with a document behaves differently is untested --- it would need a larger partner --- and it is the single most important thing this section does not show.
@@ -254,6 +254,7 @@ Three widths on Qwen3.5 9B, everything else as above: the top 1\% of value neuro
 \caption{Constitution bridge at 9B by write width. CE and agreement $n = 50$ at 24 generated tokens; benchmarks and red-team refusal $n = 100$ at the guard-rail's own budgets (384 tokens for GSM8K, 128 for red-team). The zeroed arm equals the base arm to four decimals in all six evaluations. KL selectivity is the ratio of the red-team KL to the GSM8K KL; the gate's own selectivity, the same ratio on mean $\sigma$, is 521$\times$, 375$\times$ and 110$\times$ --- highest where the write is narrowest. MMLU is scored with the repaired parser of Section~\ref{sec:repro2}.}
 \label{tab:const9b}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrrcccrr}
 \toprule
 write into & dims & test CE & agree & ord.\ CE & ord.\ ref. & GSM8K & MMLU & BoolQ & red-team ref. & KL selectivity \\
@@ -264,7 +265,7 @@ value neurons & 41 & 0.4702 & 0.8595 & 0.4001 & 0.02 & 83 & 75 & 90 & 0.660 & 48
 top 5\% & 205 & 0.4552 & 0.8600 & 0.3877 & 0.02 & 85 & 76 & 89 & 0.650 & 119$\times$ \\
 whole stream & 4096 & 0.3890 & 0.8678 & 0.3554 & 0.06 & 84 & 75 & 89 & \textbf{0.720} & 302$\times$ \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \textbf{Nothing here harms anything, and that inverts the 0.5B's central conclusion.} Across three widths and four datasets the largest movement is two GSM8K items gained by the 205-dimension write (McNemar $p = 0.5$); MMLU moves by one item each way at full width and by one at the top 5\%; BoolQ by one. At 0.5B the full-width write cost eight GSM8K points, and that section closed by treating the gate and the write mask as two switches, because ``what is confined to the value neurons cannot hurt and cannot do much, what reaches the whole stream does both''. At 9B the second half is false. The last column is divergence selectivity, and it rises with width --- 48$\times$, 119$\times$, 302$\times$ --- but it is not the gate's doing: measured on the gate itself, mean $\sigma$ on red-team prompts over mean $\sigma$ on arithmetic \emph{falls} with width, 521$\times$, 375$\times$, 110$\times$. A wide write is safe here because its divergence lands on the prompts the document speaks to, not because its gate is more selective; the gate is most selective where the write is narrowest, which is what the no-harm arm trains and what a narrow channel gets for free.
@@ -333,6 +334,7 @@ guard-rail's budgets. Churn is items gained${:}$lost against the frozen backbone
 the exact McNemar $p$.}
 \label{tab:width410}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrrrrr}
 \toprule
 write into & dims & cap & energy & CE & red-team KL & refusal ($p$) & MMLU KL & ord.\ ref. \\
@@ -343,7 +345,7 @@ top 5\% & 205 & 0.200 & 10.2\% & 0.4552 & 0.0098 & $3{:}2$ (1.00) & 0.00016 & 0.
   & \textbf{0.0576} & $\mathbf{1{:}4}$ \textbf{(0.375)} & \textbf{0.0244} & \textbf{0.02} \\
 whole stream & 4096 & 0.200 & 100\% & 0.3890 & 0.1047 & $0{:}6$ (0.031) & 0.0045 & 0.06 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \textbf{Given the budget, 10\% of the coordinates transmit.} The same 410 coordinates
@@ -497,6 +499,7 @@ The physics bridge and the constitution bridge can be put on the same frozen bac
 \caption{\psilm{}-2 acceptance, $n = 50$ held-out red-team items and $n = 50$ held-out Burgers items, against the single-channel numbers the same harnesses produced (CE 0.3890, accuracy 1.000). ``Cost'' is the paired difference in per-item CE from opening the physics channel alongside the constitution channel.}
 \label{tab:dual}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrlcc}
 \toprule
 arm & const.\ CE alone & both open & cost of the other channel & physics acc.\ & verdict \\
@@ -505,7 +508,7 @@ arm & const.\ CE alone & both open & cost of the other channel & physics acc.\ &
 gate phase, $\lambda_{\mathrm{cross}} = 1$ & 0.39250 & 0.39243 & $-0.00007$, no interval & 1.000 & regressed \\
 gate phase, $\lambda_{\mathrm{cross}} = 0$ & 0.39564 & 0.39658 & $+0.00094$, no interval & 1.000 & regressed \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \textbf{The two channels compose for free, and training the composition makes it worse.} The untrained warm start costs $+0.00027$ of constitution cross-entropy with a paired interval spanning zero --- against the channel's own effect of $-0.094$, an interference some 350 times smaller than the signal --- and its top-1 agreement, 0.8686, is the highest of any arm measured. Physics holds 1.000 held-out accuracy in all six arms at MAE 0.0141--0.0150, straddling the physics campaign's own 0.0147. Both trained arms pay more in absolute CE than the untrained one and fail the acceptance test. The cross-gate penalty did what it was designed to do in one direction, driving the constitution gate 39$\times$ lower on physics prompts than its control did, and it paid 0.0035 of absolute CE to remove an interference that was not distinguishable from zero to begin with. Only the untrained arm carries per-item cross-entropies, so neither trained arm's cost has an interval and neither is claimed to differ from zero.
