@@ -2,101 +2,120 @@
 
 ## What ΨLM-2 is
 
-ΨLM-2 keeps the ΨLM premise — nothing pretrained is fine-tuned — and puts two
-partners on the same frozen backbone at once:
+ΨLM-2 keeps the [ΨLM](https://github.com/ryoji-info/PsiLM) premise — nothing
+pretrained is fine-tuned — and puts two partners on the same frozen backbone at
+once:
 
 - a **physics bridge**, which reads a PDE's inputs out of the backbone's hidden
   states, lets a neural operator solve it, and returns the value as soft tokens;
 - a **constitution bridge**, which reads the prompt out of the same stream, lets
-  a small partner model that holds [Claude's constitution](https://www.anthropic.com/constitution)
+  a small frozen partner model that holds [Claude's constitution](https://www.anthropic.com/constitution)
   deliberate over it, and returns *that* as soft tokens.
 
-The backbone is **Qwen3.5 9B** (frozen, 4-bit, 32 layers, d = 4096). Only the
-bridges train: a few tens of millions of parameters against nine billion frozen
-ones. No text crosses either interface — both partners are reached and answered
-entirely in latent space.
+The backbone is **Qwen3.5 9B** (frozen, NVFP4, 32 layers, d = 4096). Only the
+bridges train: 73.52M parameters (physics 45.18M, constitution 28.34M) against
+nine billion frozen ones. No text crosses either interface.
 
-The aim is the one the physics bridge already demonstrates for a *quantity*,
-applied to a *disposition*: the backbone acquires something it did not have,
-through a channel narrow enough to audit and a gate that can be closed. Where
-the physics bridge supplies a number the model cannot compute, the constitution
-bridge is meant to supply the reasoning about values the model would otherwise
-only approximate.
+The question the paper asks is whether a channel like the physics one — narrow
+enough to audit, gated so it can be closed — can carry a *disposition* rather
+than a *quantity*, and where in the backbone's hidden state it should be written.
+The paper is [`paper/psilm2.pdf`](paper/psilm2.pdf) (source beside it); the
+companion physics paper is [`paper/psilm.pdf`](paper/psilm.pdf).
 
-Whether it does is an empirical question, and the honest answer today is
-*partly, and not yet at a useful width*. See [docs/status.md](docs/status.md)
-before drawing conclusions from anything here.
+## What was found
 
-## Where the constitution bridge writes
+1. **The value-neuron probe reproduces at both scales, but its causal
+   justification does not.** Following [arXiv:2602.00986](https://arxiv.org/abs/2602.00986),
+   a probe ranks residual-stream coordinates by how well they predict whether the
+   model's own continuation will be correct. At 0.5B the damage from zeroing them
+   tracks activation magnitude and magnitude-matched controls reproduce it in
+   full; at 9B the ablation is a flat null.
+2. **The probe's signal occupies a roughly fixed number of coordinates, about
+   100–200, at d = 896 and at d = 4096.** As models grow it is a falling fraction.
+3. **Width was budget, and the probe's coordinates cost collateral.** At the
+   saturated default cap the narrow writes (41 and 205 coordinates) transmit
+   nothing. At matched energy, 410 coordinates carry 62% of full width's
+   cross-entropy gain and 55% of its divergence. The probe's own 410 fit the
+   teacher 1.3× better than four magnitude-matched controls (z ≈ 3.9) and pay
+   98× their MMLU divergence for it. On 400 red-team prompts, adjudicated on
+   substance by blind judges against a written rubric, the full-width write
+   withholds the requested assistance on 21 pairs and supplies it on 2
+   (p = 0.0001); both 410 writes at parity do the same (16:5, 15:2). What is
+   withheld is legitimate information 40 times, dual-use material 7 times and
+   harmful specifics 4 times. A content-free injection of the same size and gate
+   changes 8 decisions one way and 4 the other, so the withholding is the
+   document's content: a blunter refusal, paid for mostly in helpfulness.
+4. **Two bridges of different kinds compose on one backbone without joint
+   training, and joint training makes both worse.** Neither channel costs the
+   other its payload; the composition is not inert on the backbone (MMLU
+   divergence 0.072 where a single channel stayed at 0.005, with no accuracy
+   change).
 
-The injection site is not arbitrary. Following [arXiv:2602.00986](https://arxiv.org/abs/2602.00986),
-a probe ranks residual-stream coordinates by how well they predict whether the
-model's own continuation will be correct — its "value neurons" — and the bridge
-writes only into those, through a frozen boolean mask. At this backbone's layer
-24 the top 1% is 41 of 4096 dimensions.
-
-**That is the design; it is not what the trained stack uses.** At 9B the mask turned
-out to buy nothing — every width is harmless because the gate, not the mask, does the
-safety work — while a 41-dimension write changed no behaviour at all. So the
-constitution channel here writes all 4096 dimensions, and the mask survives as the
-mechanism that made the comparison possible rather than as part of the recipe. See
-[docs/status.md](docs/status.md).
-
-Two findings from ΨLM qualify the choice of site, and both are load-bearing here:
-
-- The paper's **causal** claim does not reproduce on this backbone. Zeroing the
-  41 value neurons costs 3 GSM8K points at p = 0.375; random draws of the same
-  size cost nothing. At 0.5B, where zeroing *did* hurt, magnitude-matched
-  controls reproduced the damage — so the effect there was activation magnitude,
-  not value.
-- The **probe** evidence survives, because a probe rescales its own inputs:
-  the top 1% reaches AUC 0.788 against 0.821 at full width.
-
-So the value neurons are a defensible place to write into, on probe evidence,
-and not because zeroing them breaks the model.
+[docs/status.md](docs/status.md) records every measurement, what is still
+running, and what none of it establishes. Read it before treating anything here
+as an outcome.
 
 ## The code
 
 `psilm2.dual.PsiDualMLX` runs both channels in one forward pass, reading and
 injecting at each channel's own depth. It subclasses `psilm.mlx.model.PsiLMMLX`
 and overrides only the coupling step, so the physics loss, the no-harm arm and
-the physics generate path are inherited rather than copied — there is no second
-version of them to drift.
-
-The channels share a residual stream, so whichever writes lower changes what the
-other's gate and attention see. That interaction is the point of the composition
-and the module is built to expose it rather than absorb it. `PsiDualMLX` takes a
+the physics generate path are inherited rather than copied. `PsiDualMLX` takes a
 per-channel arm — `psilm` writes, `zeroed` builds the tokens and measures the
 gate without writing, `off` does not touch the bridge — which is what makes the
-interaction measurable from either side.
+channels' interaction measurable from either side.
 
 `python -m psilm2.dual_self_test` proves nine properties on a tiny random stack
-on the CPU, in a few seconds and with no weights. Three of them are bit-identity
-with the models ΨLM already trains, so that any difference in a dual run is the
-other channel's presence and not a different code path; one of them demands that
-the physics gate **does** move when the constitution opens below it. See
-[docs/self-test.md](docs/self-test.md).
+on the CPU, in seconds and with no weights; three are bit-identity with the
+single-channel models ΨLM trains ([docs/self-test.md](docs/self-test.md)).
+`python -m psilm2.verify_qwen35` runs the same properties on the real 9B
+checkpoints. The training chains, the evaluation harness, the value-neuron
+tooling and every result file live in the ΨLM checkout, which this package
+imports.
 
-## Status
+## Artifacts
 
-**The dual stack is built, verified on the real 9B, and measured in three arms** —
-and the headline result is that the joint training phase is not worth running. The
-two channels compose for free: the untrained warm start costs +0.00027 of
-constitution cross-entropy (95% [−0.00038, +0.00093], spanning zero) against the
-channel's own effect of −0.094, and physics holds 1.000 held-out accuracy with the
-constitution channel open. Both trained arms pay more than that and fail acceptance.
+| where | what |
+|---|---|
+| [ryoji-info/Qwen3.5-9B-PsiLM](https://huggingface.co/ryoji-info/Qwen3.5-9B-PsiLM) | the NVFP4 backbone and the physics bridge |
+| [ryoji-info/PsiLM-2](https://huggingface.co/ryoji-info/PsiLM-2) | the constitution partner model, every trained constitution bridge (9B and 0.5B), the physics bridge in the same layout, and the guard-rail task caches |
+| [ryoji-info/PsiLM](https://github.com/ryoji-info/PsiLM) | code, data, chains, and every evaluation record (`results/bench/*_summary.json`, `results/constitution/`) |
 
-`load_dual_stack` has been run against the real checkpoints; the three bit-identity
-properties hold there as well as on the tiny stack. [docs/status.md](docs/status.md)
-records what is measured and what it does not establish — read it before treating
-anything here as an outcome, and note that the composition was measured on
-cross-entropy and accuracy only, not on refusal behaviour or a guard-rail suite.
+## Evaluating it yourself
 
-## Related
+```bash
+git clone https://github.com/ryoji-info/PsiLM && git clone https://github.com/ryoji-info/PsiLM-2
+hf download ryoji-info/Qwen3.5-9B-PsiLM --local-dir hub/backbone
+hf download ryoji-info/PsiLM-2 --local-dir hub/psilm2
+cd PsiLM && python -m venv .venv && .venv/bin/pip install -e . -e ../PsiLM-2
+# the constitution channel alone, on the recorded 100 items
+.venv/bin/python eval/bench_guardrail.py --tag mine_all --n 100 \
+    --tasks-cache ../hub/psilm2/caches/tasks_const_qwen35_n100.json \
+    --model ../hub/backbone --hf-tokenizer ../hub/backbone --bridge-kind constitution \
+    --ckpt ../hub/psilm2/bridges/qwen3.5-9b/all/bridges.safetensors \
+    --const-model ../hub/psilm2/constitution_model \
+    --redteam-data data/constitution_test_qwen35.json \
+    --datasets redteam,gsm8k,mmlu,boolq --arms base,psilm,zeroed --kl --seed 0
+# both channels
+PYTHONPATH=../PsiLM-2 .venv/bin/python eval/bench_guardrail.py --tag mine_both --n 100 \
+    --tasks-cache ../hub/psilm2/caches/tasks_const_qwen35_n100.json \
+    --model ../hub/backbone --hf-tokenizer ../hub/backbone --bridge-kind dual --dual-channels both \
+    --phys-ckpt ../hub/psilm2/physics/qwen3.5-9b/bridges.safetensors \
+    --ckpt ../hub/psilm2/bridges/qwen3.5-9b/all/bridges.safetensors \
+    --const-model ../hub/psilm2/constitution_model \
+    --redteam-data data/constitution_test_qwen35.json \
+    --datasets redteam,gsm8k,mmlu,boolq --arms base,psilm,zeroed --kl --seed 0
+```
 
-- [ΨLM](https://github.com/ryoji-info/PsiLM) — the physics-bridge work this builds on, including the value-neuron and constitution-bridge experiments at 0.5B and 9B.
+The `base` arm is deterministic and must reproduce the recorded rows item for
+item; `zeroed` must equal `base` to four decimals; `psilm` is the arm under test.
+Compare against `results/bench/const_qwen35_all_guardrail_summary.json` and
+`dual_qwen35_both_guardrail_summary.json` in the ΨLM checkout. Everything runs on
+one Apple M2 (24 GB); a four-dataset guard-rail takes about four hours.
 
 ## License
 
 Apache 2.0. Claude's constitution is released by Anthropic under CC0 1.0; the
 copy used to build the partner model carries its provenance alongside it.
+
+If this work is useful to you: [ko-fi.com/ryojifurui](https://ko-fi.com/ryojifurui).
