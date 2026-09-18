@@ -1,14 +1,14 @@
 # What is measured, and what it does not establish
 
-Last updated 2026-09-18. Every number here was produced by the harness in
+Last updated 2026-09-19. Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM) and traces to a committed file there;
 the paper ([`paper/psilm2.pdf`](../paper/psilm2.pdf)) is the full account.
 
 ## Measured
 
 **The dual stack.** `psilm2.dual` runs both channels in one pass. Nine
-assertions on a tiny CPU stack, and the same on the real 9B checkpoints
-(`psilm2.verify_qwen35`), pin down that it reduces exactly to each single-channel
+assertions on a tiny CPU stack, and the three bit-identity properties plus the
+gate-interaction check on the real 9B checkpoints (`psilm2.verify_qwen35`), pin down that it reduces exactly to each single-channel
 model when the other channel is off and that the two channels share a residual
 stream. Three arms on 50 held-out red-team and 50 held-out physics items:
 
@@ -22,8 +22,9 @@ The composition costs nothing measurable on either payload and joint training
 buys nothing, so the joint phase is documented as not worth running. It is not
 inert on the backbone: on the four-dataset guard-rail the both-open arm's MMLU
 divergence is 0.072 where the constitution channel alone stayed at 0.005, with
-no accuracy change (after a parser repair no arm in this work moves MMLU
-accuracy significantly; the 9B backbone scores 75/100). Adjudicated on the
+no significant accuracy change (MMLU 75 → 77, 3:1, p = 0.63; after a parser
+repair no arm in this work moves MMLU accuracy significantly; the 9B backbone
+scores 75/100). Adjudicated on the
 red-team prompts, the both-open arm changes exactly one decision, the same one
 the constitution channel changes alone. The physics-only attribution arm settles
 where the divergence comes from: with only the physics channel open, MMLU KL is
@@ -47,7 +48,7 @@ default cap 0.2, 1,000 steps each, n = 100 guard-rail:
 |---|---:|---:|---:|---|---:|
 | base | — | 0.4829 | — | 0.660 | — |
 | value neurons | 41 | 0.4702 | 0.0023 | 0.660 (1:1) | 0.00011 |
-| top 5% | 205 | 0.4552 | 0.0098 | 0.650 (3:2) | 0.00016 |
+| top 5% | 205 | 0.4552 | 0.0098 | 0.650 (2:3) | 0.00016 |
 | whole stream | 4096 | 0.3890 | 0.1047 | 0.720 (6:0, p = 0.031) | 0.0045 |
 
 Every arm saturated the cap, which bounds the per-coordinate write, so the narrow
@@ -82,8 +83,11 @@ At n = 100 no arm had cleared p < 0.05 on substance; the effect sits in the 300
 prompts added later. Eight prompts are withheld by all three arms. Two blind
 judges categorised every changed pair: across the three arms the write withholds
 legitimate information 40 times, dual-use material 7 times and harmful specifics
-4 times; both 410 writes also release, once, content the backbone had refused (a
-precursor-reagent list). The content-free control — a random direction rescaled
+4 times. The writes also release content the backbone had refused: the probe-best
+410 twice (a list of racist tropes on prompt 231 and a precursor-reagent list on
+prompt 382), the probe-worst 410 once (382, where the judges split between
+harmful and mixed), and the wide write supplies the prompt-231 content as well.
+The content-free control — a random direction rescaled
 to the real injection's per-coordinate RMS through the identical gate — carries
 5% of the divergence and moves decisions in both directions equally, so the
 one-directional withholding is the document's content. It also flips the one
@@ -91,8 +95,11 @@ prompt every arm flips (an underage-drink workaround), which is therefore a
 knife-edge of the backbone's own reply and not a judgment the document supplied.
 
 **The partner control, at 0.5B.** A bridge to the *untouched* base model (same
-architecture, no constitution in its weights) matched its constitution-partner
-twin within noise at every width. The document in the partner's weights was not
+architecture, no constitution in its weights) matched or beat its
+constitution-partner twin at every width: at nine coordinates the plain partner
+is better by 0.0040 of per-item cross-entropy, 95% [−0.0079, −0.0009], an
+interval excluding zero, and at full width the two are indistinguishable
+(−0.0096, 95% [−0.0302, +0.0125]). The document in the partner's weights was not
 what the channel carried; it entered through the self-distillation teacher's
 context. The 9B twins are queued (below).
 

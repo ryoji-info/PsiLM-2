@@ -15,9 +15,10 @@ Both share `refs.bib`.
 
 ## Status
 
-`psilm2.tex` carries `\pending{...}` markers, rendered in red, wherever a number is
-not yet in the committed logs. Grep for them before treating the manuscript as
-finished:
+`psilm2.tex` carries no `\pending{...}` markers as of this build: every number in
+it is in the committed logs of the ΨLM checkout. The convention stays — a number
+not yet in the logs is written as `\pending{...}` and renders in red — so this
+remains the check before treating a later revision as finished:
 
 ```
 grep -n 'pending{' psilm2.tex

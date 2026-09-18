@@ -20,6 +20,7 @@ anything here.
 """
 
 import argparse
+import os
 import json
 import random
 import time
@@ -280,7 +281,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dry-run", action="store_true",
                     help="tiny random stack on the CPU: exercises the loop, touches no GPU")
-    ap.add_argument("--model", default="/Users/rxiii/Documents/huggingface/qwen3.5-9b-mlx")
+    ap.add_argument("--model", default=os.environ.get("PSILM_BACKBONE"),
+                    help="the NVFP4 Qwen3.5 9B backbone: a local directory or Hub id (default: $PSILM_BACKBONE)")
     ap.add_argument("--phys-ckpt", default="results/stage2_qwen35/bridges.npz")
     ap.add_argument("--fno", default="results/stage2/fno.pt")
     ap.add_argument("--const-ckpt", default="results/stage2c_qwen35_all/bridges.npz")
@@ -290,6 +292,8 @@ def main():
     ap.add_argument("--noharm-data", default="data/noharm_qwen35_all.json")
     ap.add_argument("--phys-data", default="data/stage2_qa_train.json")
     a = ap.parse_args()
+    if a.model is None and not a.dry_run:
+        ap.error("--model or $PSILM_BACKBONE is required outside --dry-run: the NVFP4 backbone directory, e.g. an `hf download ryoji-info/Qwen3.5-9B-PsiLM --local-dir ...` copy")
 
     phase = next(p for p in PHASES if p.name == a.phase)
     if a.steps is not None:

@@ -5,8 +5,9 @@
 ## What ΨLM-2 is
 
 ΨLM-2 keeps the [ΨLM](https://github.com/ryoji-info/PsiLM) premise — nothing
-pretrained is fine-tuned — and puts two partners on the same frozen backbone at
-once:
+pretrained is fine-tuned during bridge training; the backbone and both partners
+stay frozen, the constitution partner having been produced by a full fine-tune
+beforehand — and puts two partners on the same frozen backbone at once:
 
 - a **physics bridge**, which reads a PDE's inputs out of the backbone's hidden
   states, lets a neural operator solve it, and returns the value as soft tokens;
@@ -35,8 +36,9 @@ companion physics paper is [`paper/psilm.pdf`](paper/psilm.pdf).
 2. **The probe's signal occupies a roughly fixed number of coordinates, about
    100–200, at d = 896 and at d = 4096.** As models grow it is a falling fraction.
 3. **Width was budget, and the probe's coordinates cost collateral.** At the
-   saturated default cap the narrow writes (41 and 205 coordinates) transmit
-   nothing. At matched energy, 410 coordinates carry 62% of full width's
+   saturated default cap the narrow writes (41 and 205 coordinates) leave the
+   keyword refusal count where it was (1:1 and 2:3 flips) and carry the
+   teacher's manner rather than its judgment. At matched energy, 410 coordinates carry 62% of full width's
    cross-entropy gain and 55% of its divergence. The probe's own 410 fit the
    teacher 1.3× better than four magnitude-matched controls (z ≈ 3.9) and pay
    98× their MMLU divergence for it. On 400 red-team prompts, adjudicated on
@@ -44,14 +46,19 @@ companion physics paper is [`paper/psilm.pdf`](paper/psilm.pdf).
    withholds the requested assistance on 21 pairs and supplies it on 2
    (p = 0.0001); both 410 writes at parity do the same (16:5, 15:2). What is
    withheld is legitimate information 40 times, dual-use material 7 times and
-   harmful specifics 4 times. A content-free injection of the same size and gate
+   harmful specifics 4 times, and the writes also release content the backbone
+   had refused: racist tropes on one prompt (the wide write and the probe-best
+   410) and a partial methamphetamine precursor list on another (both 410
+   writes). A content-free injection of the same size and gate
    changes 8 decisions one way and 4 the other, so the withholding is the
    document's content: a blunter refusal, paid for mostly in helpfulness.
 4. **Two bridges of different kinds compose on one backbone without joint
-   training, and joint training makes both worse.** Neither channel costs the
-   other its payload; the composition is not inert on the backbone (MMLU
-   divergence 0.072 where the constitution channel alone stayed at 0.005 and the
-   physics channel alone sits at 0.041, with no accuracy change).
+   training, and joint training makes the composition worse.** Neither channel
+   costs the other its payload (physics accuracy stays at 1.000, and joint
+   training costs constitution cross-entropy without buying anything); the
+   composition is not inert on the backbone (MMLU divergence 0.072 where the
+   constitution channel alone stayed at 0.005 and the physics channel alone sits
+   at 0.041, with no significant accuracy change: MMLU 75 → 77, 3:1, p = 0.63).
 
 [docs/status.md](docs/status.md) records every measurement, what is still
 running, and what none of it establishes. Read it before treating anything here
@@ -70,8 +77,9 @@ channels' interaction measurable from either side.
 `python -m psilm2.dual_self_test` proves nine properties on a tiny random stack
 on the CPU, in seconds and with no weights; three are bit-identity with the
 single-channel models ΨLM trains ([docs/self-test.md](docs/self-test.md)).
-`python -m psilm2.verify_qwen35` runs the same properties on the real 9B
-checkpoints. The training chains, the evaluation harness, the value-neuron
+`python -m psilm2.verify_qwen35` re-runs the three bit-identity properties, plus
+the gate-interaction check, on the real 9B checkpoints (it needs `--model` or
+`PSILM_BACKBONE` pointing at the backbone). The training chains, the evaluation harness, the value-neuron
 tooling and every result file live in the ΨLM checkout, which this package
 imports.
 
@@ -86,9 +94,10 @@ imports.
 ## Evaluating it yourself
 
 ```bash
+pip install -U huggingface_hub                      # the `hf` downloader (`hf auth login` first while a repo is still private)
 git clone https://github.com/ryoji-info/PsiLM && git clone https://github.com/ryoji-info/PsiLM-2
-hf download ryoji-info/Qwen3.5-9B-PsiLM --local-dir hub/backbone
-hf download ryoji-info/PsiLM-2 --local-dir hub/psilm2
+hf download ryoji-info/Qwen3.5-9B-PsiLM --local-dir hub/backbone     # 8 GB: backbone + physics bridge + FNO
+hf download ryoji-info/PsiLM-2 --local-dir hub/psilm2                 # partner, bridges, caches
 cd PsiLM && python -m venv .venv && .venv/bin/pip install -e . -e ../PsiLM-2
 # the constitution channel alone, on the recorded 100 items
 .venv/bin/python eval/bench_guardrail.py --tag mine_all --n 100 \
@@ -96,24 +105,31 @@ cd PsiLM && python -m venv .venv && .venv/bin/pip install -e . -e ../PsiLM-2
     --model ../hub/backbone --hf-tokenizer ../hub/backbone --bridge-kind constitution \
     --ckpt ../hub/psilm2/bridges/qwen3.5-9b/all/bridges.safetensors \
     --const-model ../hub/psilm2/constitution_model \
-    --redteam-data data/constitution_test_qwen35.json \
+    --redteam-data data/constitution_test_qwen35.json --max-new-mmlu 256 \
     --datasets redteam,gsm8k,mmlu,boolq --arms base,psilm,zeroed --kl --seed 0
-# both channels
-PYTHONPATH=../PsiLM-2 .venv/bin/python eval/bench_guardrail.py --tag mine_both --n 100 \
+# both channels (the FNO beside the backbone loads without torch)
+.venv/bin/python eval/bench_guardrail.py --tag mine_both --n 100 \
     --tasks-cache ../hub/psilm2/caches/tasks_const_qwen35_n100.json \
     --model ../hub/backbone --hf-tokenizer ../hub/backbone --bridge-kind dual --dual-channels both \
     --phys-ckpt ../hub/psilm2/physics/qwen3.5-9b/bridges.safetensors \
+    --fno ../hub/backbone/physics/fno_burgers_singlemode.safetensors \
     --ckpt ../hub/psilm2/bridges/qwen3.5-9b/all/bridges.safetensors \
     --const-model ../hub/psilm2/constitution_model \
-    --redteam-data data/constitution_test_qwen35.json \
+    --redteam-data data/constitution_test_qwen35.json --max-new-mmlu 256 \
     --datasets redteam,gsm8k,mmlu,boolq --arms base,psilm,zeroed --kl --seed 0
 ```
 
-The `base` arm is deterministic and must reproduce the recorded rows item for
-item; `zeroed` must equal `base` to four decimals; `psilm` is the arm under test.
+Every flag above is one the recorded runs used (`--max-new-mmlu 256` included;
+the task cache checks them, and identifies the tokenizer by a fingerprint of its
+behaviour rather than by its path, so any copy of the backbone restores it). The
+`base` arm is deterministic and must reproduce the recorded rows item for item;
+`zeroed` must equal `base` to four decimals; `psilm` is the arm under test.
 Compare against `results/bench/const_qwen35_all_guardrail_summary.json` and
 `dual_qwen35_both_guardrail_summary.json` in the ΨLM checkout. Everything runs on
-one Apple M2 (24 GB); a four-dataset guard-rail takes about four hours.
+one Apple M2 (24 GB); a four-dataset guard-rail takes about four hours. The
+tracked `results/stage2/fno.pt` is the same FNO in torch form and needs
+`pip install -e ".[stage1]"`; rebuilding a task cache from scratch needs
+`".[bench]"`.
 
 ## License
 

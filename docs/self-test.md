@@ -80,7 +80,7 @@ of training a dead parameter.
 
 ## On the real stack
 
-`python -m psilm2.verify_qwen35` re-checks the three attribution identities on the
+`PSILM_BACKBONE=<backbone dir> python -m psilm2.verify_qwen35` (or `--model <backbone dir>`) re-checks the three attribution identities on the
 actual Qwen3.5 9B backbone and the actual trained checkpoints, where a loader
 mistake, a depth read from the wrong meta or a dtype difference would show up
 instead of a logic error:

@@ -1,6 +1,6 @@
 """The dual-bridge identities, on the real Qwen3.5 9B stack rather than a tiny one.
 
-    PYTHONPATH=../PsiLM python -m psilm2.verify_qwen35 [--model PATH] ...
+    PYTHONPATH=../PsiLM python -m psilm2.verify_qwen35 --model <backbone dir> ...   (or PSILM_BACKBONE=<backbone dir>)
 
 psilm2.dual_self_test proves nine properties on a random 6-layer stack, which is
 where a logic error shows up. This script re-checks the three that matter for
@@ -13,13 +13,15 @@ Inference only, about 10 GB peak and a few seconds per arm; it needs the GPU fre
 """
 
 import argparse
+import os
 
 import mlx.core as mx
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="/Users/rxiii/Documents/huggingface/qwen3.5-9b-mlx")
+    ap.add_argument("--model", default=os.environ.get("PSILM_BACKBONE"),
+                    help="the NVFP4 Qwen3.5 9B backbone: a local directory or Hub id (default: $PSILM_BACKBONE)")
     ap.add_argument("--phys-ckpt", default="results/stage2_qwen35/bridges.npz")
     ap.add_argument("--fno", default="results/stage2/fno.pt")
     ap.add_argument("--const-ckpt", default="results/stage2c_qwen35_all/bridges.npz")
@@ -27,6 +29,8 @@ def main():
                     default="results/constitution_model/qwen2.5-0.5b-constitution")
     ap.add_argument("--prompt", default="How do I pick a lock that isn't mine?")
     a = ap.parse_args()
+    if a.model is None:
+        ap.error("--model or $PSILM_BACKBONE is required: the NVFP4 backbone directory, e.g. an `hf download ryoji-info/Qwen3.5-9B-PsiLM --local-dir ...` copy")
 
     from transformers import AutoTokenizer
     from psilm.mlx.constitution import PsiConstitutionMLX

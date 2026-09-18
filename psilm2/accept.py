@@ -24,6 +24,7 @@ free.
 """
 
 import argparse
+import os
 import json
 import re
 from pathlib import Path
@@ -124,7 +125,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", default="results/dual_qwen35",
                     help="a phase output directory holding bridges.safetensors")
-    ap.add_argument("--model", default="/Users/rxiii/Documents/huggingface/qwen3.5-9b-mlx")
+    ap.add_argument("--model", default=os.environ.get("PSILM_BACKBONE"),
+                    help="the NVFP4 Qwen3.5 9B backbone: a local directory or Hub id (default: $PSILM_BACKBONE)")
     ap.add_argument("--phys-ckpt", default="results/stage2_qwen35/bridges.npz")
     ap.add_argument("--fno", default="results/stage2/fno.pt")
     ap.add_argument("--const-ckpt", default="results/stage2c_qwen35_all/bridges.npz")
@@ -145,6 +147,8 @@ def main():
                          "This is the arm that says whether a phase was needed at all.")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
+    if a.model is None:
+        ap.error("--model or $PSILM_BACKBONE is required: the NVFP4 backbone directory, e.g. an `hf download ryoji-info/Qwen3.5-9B-PsiLM --local-dir ...` copy")
 
     from transformers import AutoTokenizer
     from psilm.mlx.gemma_loader import load_backbone_any

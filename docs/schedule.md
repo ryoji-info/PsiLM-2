@@ -15,12 +15,17 @@ trained gate knows that:
 | GSM8K / MMLU | shut | shut | yes, both |
 
 Two gates each trained to open on "their" prompts and shut on arithmetic have no
-reason to stay out of each other's way. That matters because the gate is what does
-the safety work: at 9B the constitution channel's KL to the base was **302×**
-larger on red-team prompts than on arithmetic, and that selectivity — not the
-write mask — is why writing all 4096 dimensions cost nothing on any benchmark. A
-composition that let both gates drift open on everything would discard exactly the
-property the campaign established.
+reason to stay out of each other's way. That matters because the gate is what keeps
+each channel off the other's prompts: at 9B the constitution channel's KL to the
+base was **302×** larger on red-team prompts than on arithmetic, and that
+divergence selectivity — not the write mask — is why writing all 4096 dimensions
+left GSM8K, MMLU and BoolQ within one or two items of the backbone while moving
+red-team refusal 0.660 → 0.720. (The paper later showed the selectivity is not
+the gate's own doing: measured on the gate, the red-team/arithmetic ratio *falls*
+with width, 547×/364×/109×, and the wide write is safe because its divergence
+lands on the prompts the document speaks to.) A composition that let both gates
+drift open on everything would still discard the property that makes the two
+channels observable from either side.
 
 So the schedule's one substantive addition is a **cross-gate penalty**: on each
 task's own batches, the *other* channel's mean gate is penalised. It is the
@@ -99,15 +104,20 @@ PYTHONPATH=../PsiLM python -m psilm2.schedule_self_test
 6. the acceptance test tolerates 0.0025 of CE drift and refuses 0.006
 7. the physics task path runs inside the schedule, with its cross penalty attached
 8. **a gate-only phase moves 8 gate tensors and 0 of 57 others**
+9. a chunked run's step count is cumulative across chunks
+10. chunk 2 does not trace chunk 1's trajectory (the replay test)
+11. an active frozen channel is refused with a named error, not trained for zero steps
 
 Assertion 5 is the design under test rather than the code: if a step on the cross
-penalty did not move the other gate, the penalty would be decoration.
+penalty did not move the other gate, the penalty would be decoration. Assertions
+9–11 were added after the first 9B run exposed the bugs they catch
+([self-test.md](self-test.md)).
 
 ## Running it
 
 ```bash
 PYTHONPATH=../PsiLM python -m psilm2.train_dual --dry-run --steps 12   # CPU, no weights
-PYTHONPATH=../PsiLM python -m psilm2.train_dual --phase coexist --steps 600
+PYTHONPATH=../PsiLM PSILM_BACKBONE=<backbone dir> python -m psilm2.train_dual --phase coexist --steps 600
 ```
 
 Chunked like every PsiLM trainer: `--steps` per invocation, resuming from its own
