@@ -25,8 +25,12 @@ divergence is 0.072 where the constitution channel alone stayed at 0.005, with
 no accuracy change (after a parser repair no arm in this work moves MMLU
 accuracy significantly; the 9B backbone scores 75/100). Adjudicated on the
 red-team prompts, the both-open arm changes exactly one decision, the same one
-the constitution channel changes alone. **The physics-only attribution arm is
-running** and decides whether that divergence is the physics channel's own.
+the constitution channel changes alone. The physics-only attribution arm settles
+where the divergence comes from: with only the physics channel open, MMLU KL is
+0.041 (against 0.005 for the constitution channel alone and 0.072 for both), so
+most of it is the physics channel's own write and the two together exceed their
+sum by 0.027; its accuracy is unchanged, GSM8K item-identical, and its red-team
+divergence 0.0005.
 
 **Value neurons on Qwen3.5 9B.** 800 GSM8K-train trajectories, Monte-Carlo probe
 target, seven candidate depths; layer 24 chosen by held-out AUC: 0.821 full
@@ -94,7 +98,6 @@ context. The 9B twins are queued (below).
 
 ## Running (as of 2026-09-18, in queue order)
 
-- the physics-only attribution arm of the dual stack;
 - the 41- and 205-coordinate masks at energy parity (`vn1e`, `vn5e`), then
   their magnitude-matched random controls (`match41`, `match205`): whether the
   narrowest writes carry the same blunter refusal at matched energy, and whether

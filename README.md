@@ -50,8 +50,8 @@ companion physics paper is [`paper/psilm.pdf`](paper/psilm.pdf).
 4. **Two bridges of different kinds compose on one backbone without joint
    training, and joint training makes both worse.** Neither channel costs the
    other its payload; the composition is not inert on the backbone (MMLU
-   divergence 0.072 where a single channel stayed at 0.005, with no accuracy
-   change).
+   divergence 0.072 where the constitution channel alone stayed at 0.005 and the
+   physics channel alone sits at 0.041, with no accuracy change).
 
 [docs/status.md](docs/status.md) records every measurement, what is still
 running, and what none of it establishes. Read it before treating anything here
