@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/psilm2-banner.png" width="720"></p>
+
 <p align="center"><b>ΨLM-2 — one frozen language model, two frozen partners: a physics model and a document of values, each reached through small trainable bridges.</b></p>
 
 ## What ΨLM-2 is
