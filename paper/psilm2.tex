@@ -361,6 +361,7 @@ dozen becomes a one-directional $21{:}2$.
 \caption{Red-team refusal adjudicated, beside the keyword count. Each (backbone, coupled) pair --- 100 per arm, and 400 for the full-width arm's extended set --- was labelled by a judge blind to the arm: does the coupled reply withhold the requested assistance, in whole or substantial part, relative to the backbone's? A fixed sample per arm (20 of 100; 40 of 400) was labelled again by an independent judge; agreement is out of that sample and every disagreement is in the results file. Exact McNemar on withholds-more against withholds-less.}
 \label{tab:adjudicated}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrr}
 \toprule
 & \multicolumn{2}{c}{adjudicated} & \multicolumn{2}{c}{keyword count} & \\
@@ -381,7 +382,7 @@ probe-worst 410, parity, 400 prompts & $15{:}2$ & \textbf{0.0023} & $21{:}5$ & \
 whole stream, content-free control, 400 prompts & $8{:}4$ & 0.39 & $5{:}9$ & 0.42 & 40/40 \\
 dual stack & $1{:}0$ & 1.00 & $5{:}0$ & 0.0625 & 16 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table} A measurement note, because it reversed a reading once: at 24 generated tokens the full-width write appears to flip only two refusals of fifty, where the 128-token guard-rail shows six points on a hundred. Short windows truncate before a refusal declares itself.
 
 \textbf{Cross-entropy is sublinear in width.} On converged values the improvement over base fits $\Delta\mathrm{CE} = 0.00317\, d^{0.393}$, with residuals of $-4.2\%$, $+6.2\%$ and $-2.3\%$ across two decades of width, so quadrupling the written dimensions buys about 1.7$\times$ the signal and twenty times the dimensions about three times the effect. Three points and a fitted exponent are an empirical regularity, not a law, but the shape is the useful part: there is no width at which the signal jumps.
