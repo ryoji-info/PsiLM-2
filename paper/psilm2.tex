@@ -25,7 +25,7 @@
 \maketitle
 
 \begin{abstract}
-A frozen language model can be coupled to a frozen partner model through small trainable latent bridges, with no text at the interface: \companion{} builds such a system around a physics partner, where the quantity being carried is a number the partner computes. This paper asks whether the same channel can carry a \emph{disposition} --- and where in a backbone's hidden state it should be written. The partner is a 0.5B model holding Claude's constitution \citep{anthropic2026constitution}; the write site is the ``value neurons'' of \citet{xu2026valueneurons}, a sparse set of residual-stream coordinates that predict state value; the supervision is self-distillation from the same frozen backbone prompted with the document. We report four things. (1) The probe reproduces at both scales but its published causal justification does not: at 0.5B the damage from ablating value neurons tracks activation magnitude, with magnitude-matched controls reproducing it in full, and at 9B the ablation is a flat null. (2) The number of coordinates carrying the probe's value signal is roughly \emph{fixed in absolute terms} across a 4.6$\times$ change in model width --- an AUC knee near 100--200 dimensions at both 896 and 4096 --- so it is a falling \emph{fraction} as models grow. (3) At the default cap a masked write into those coordinates is safe at 9B and transmits the prompted teacher's manner but not its judgment, while a full-width write moves the keyword refusal count ($0.660 \to 0.720$ on 100 prompts, six and none away, exact McNemar $p = 0.031$; $0.653 \to 0.693$ on 400, nineteen and three, $p = 0.0009$). On 100 prompts adjudication against a written rubric reduced that to one decision changed and one the other way, the same single prompt changing at every width; on 400 it does not: the wide write withholds the requested assistance on 21 pairs and supplies it on 2 ($p = 0.0001$), a set largely disjoint from the keyword flips, and of the 21, two blind judges agree that 2 withhold specifics a careful assistant should withhold, 4 withhold dual-use material, and 15 withhold legitimate information: the disposition the wide write carries is a blunter refusal, paid for mostly in helpfulness. A content-free injection of the same magnitude through the same gate changes 8 decisions one way and 4 the other ($p = 0.39$) at 5\% of the divergence, so the withholding is the document's content and not the perturbation. That contrast, however, is confounded: the injection cap bounds the write's \emph{per-dimension} magnitude and every arm saturated it, so full width was handed 26$\times$ the total perturbation energy of the value-neuron mask. Per unit of energy actually spent the narrow write did 3.6$\times$ more. At matched energy the same 410 coordinates --- 10\% of the stream, the cap raised to restore parity --- carry 62\% of full width's cross-entropy gain, 55\% of its divergence and four of its six refusal flips; on 400 prompts it withholds on substance too, 16 pairs against 5 ($p = 0.027$), as does the probe-worst set ($15{:}2$), and both hand over a precursor list the backbone had refused; so most of what read as a width effect was budget, though a residue survives parity, and the probe's coordinates --- uniquely among four matched sets --- carry a hundredfold larger divergence on MMLU while changing no more answers. (4) Two bridges of entirely different kinds --- the physics partner and the constitution --- run on one frozen 9B backbone with no joint training, and training them jointly makes both worse. Neither channel costs the other its payload: with both open, the five red-team prompts that flip the keyword count are a subset of the six the constitution channel flips alone, the two arms disagree on one held-out prompt in a hundred, and adjudicated each changes the same one decision. But the composition is not inert on the backbone, and that is this paper's last negative result: MMLU divergence rises to 0.072 where the constitution channel alone stayed at 0.005 and the physics channel alone sits at 0.041 --- a divergence without an accuracy change, since after a parser repair described in Section~\ref{sec:repro2} no arm in this paper moves MMLU accuracy significantly. Everything runs on one consumer laptop (Apple M2, 24\,GB) and is reproducible from the repository.
+A frozen language model can be coupled to a frozen partner model through small trainable latent bridges, with no text at the interface: \companion{} builds such a system around a physics partner, where the quantity being carried is a number the partner computes. This paper asks whether the same channel can carry a \emph{disposition} --- and where in a backbone's hidden state it should be written. The partner is a 0.5B model holding Claude's constitution \citep{anthropic2026constitution}; the write site is the ``value neurons'' of \citet{xu2026valueneurons}, a sparse set of residual-stream coordinates that predict state value; the supervision is self-distillation from the same frozen backbone prompted with the document. We report four things. (1) The probe reproduces at both scales but its published causal justification does not: at 0.5B the damage from ablating value neurons tracks activation magnitude, with magnitude-matched controls reproducing it in full, and at 9B the ablation is a flat null. (2) The number of coordinates carrying the probe's value signal is roughly \emph{fixed in absolute terms} across a 4.6$\times$ change in model width --- an AUC knee near 100--200 dimensions at both 896 and 4096 --- so it is a falling \emph{fraction} as models grow. (3) At the default cap a masked write into those coordinates is safe at 9B and transmits the prompted teacher's manner but not its judgment, while a full-width write moves the keyword refusal count ($0.660 \to 0.720$ on 100 prompts, six and none away, exact McNemar $p = 0.031$; $0.653 \to 0.693$ on 400, nineteen and three, $p = 0.0009$). On 100 prompts adjudication against a written rubric reduced that to one decision changed and one the other way, the same single prompt changing at every width; on 400 it does not: the wide write withholds the requested assistance on 21 pairs and supplies it on 2 ($p = 0.0001$), a set largely disjoint from the keyword flips, and of the 21, two blind judges agree that 2 withhold specifics a careful assistant should withhold, 4 withhold dual-use material, and 15 withhold legitimate information: the disposition the wide write carries is a blunter refusal, paid for mostly in helpfulness. A content-free injection of the same magnitude through the same gate changes 8 decisions one way and 4 the other ($p = 0.39$) at 5\% of the divergence, so the withholding is the document's content and not the perturbation. That contrast, however, is confounded: the injection cap bounds the write's \emph{per-dimension} magnitude and every arm saturated it, so full width was handed 26$\times$ the total perturbation energy of the value-neuron mask. Per unit of energy actually spent the narrow write did 3.6$\times$ more. At matched energy the same 410 coordinates --- 10\% of the stream, the cap raised to restore parity --- carry 62\% of full width's cross-entropy gain, 55\% of its divergence and four of its six refusal flips; on 400 prompts it withholds on substance too, 16 pairs against 5 ($p = 0.027$), as does the probe-worst set ($15{:}2$), and both hand over a precursor list the backbone had refused; the 41- and 205-coordinate masks at parity, on the same prompts, carry a weaker copy of the withholding ($10{:}4$ and $10{:}6$, neither significant) and release nothing harmful; so most of what read as a width effect was budget, though a residue survives parity, and the probe's coordinates --- uniquely among four matched sets --- carry a hundredfold larger divergence on MMLU while changing no more answers. (4) Two bridges of entirely different kinds --- the physics partner and the constitution --- run on one frozen 9B backbone with no joint training, and training them jointly makes both worse. Neither channel costs the other its payload: with both open, the five red-team prompts that flip the keyword count are a subset of the six the constitution channel flips alone, the two arms disagree on one held-out prompt in a hundred, and adjudicated each changes the same one decision. But the composition is not inert on the backbone, and that is this paper's last negative result: MMLU divergence rises to 0.072 where the constitution channel alone stayed at 0.005 and the physics channel alone sits at 0.041 --- a divergence without an accuracy change, since after a parser repair described in Section~\ref{sec:repro2} no arm in this paper moves MMLU accuracy significantly. Everything runs on one consumer laptop (Apple M2, 24\,GB) and is reproducible from the repository.
 \end{abstract}
 
 \section{Introduction}
@@ -336,6 +336,30 @@ both had said harmful. Across the three arms, then, what the write withholds
 is legitimate information 40 times, dual-use material 7 times and harmful
 specifics 4 times.
 
+\textbf{The narrow masks at parity carry a weaker copy of it, not a different
+one.} Given the same 400 prompts, the 41 value neurons at parity withhold on 10
+pairs and supply on 4 ($p = 0.18$; re-judge 40 of 40; keyword $10{:}6$,
+$p = 0.45$), and the top 5\% on 10 against 6 ($p = 0.45$; re-judge 39 of 40;
+keyword $14{:}7$, $p = 0.19$). Neither clears significance, and neither is a new
+disposition: eight of each arm's ten withholdings are prompts the wide write
+withholds, seven are shared between the two narrow arms, and three of the 41's
+and two of the 205's are prompts the content-free perturbation flips as well (16
+and 174 among them). The category judges agree on all 14 and all 16 changed
+pairs. The 41 withholds harmful specifics twice (prompt 16, and the chloroform
+synthesis routes of prompt 369, which the wide write withholds too), legitimate
+information seven times and dual-use material once; the 205 withholds harmful
+specifics once (16), legitimate information six times and dual-use material
+three times. What they release is legitimate content --- naming common swear
+words, a harmless prank, the arguments creationists cite, lawful self-defence
+alternatives, a description of crack cocaine, a direct answer about a slur, a
+list of historical atrocities --- with one dual-use exception (lawful aid-form
+optimisation supplied to someone who asked how to cheat, prompt 149); neither
+narrow arm releases the harmful specifics both 410 arms release. Across the five
+arms on 400 prompts, then, what the writes withhold is legitimate information 53
+times, dual-use material 11 times and harmful specifics 7 times, and what they
+release is legitimate 14 times, dual-use once and harmful 3 times, all three of
+those by the 410-coordinate arms.
+
 \textbf{The content-free control says it is the content.} The wide write's run
 carries a fourth arm: on every prompt a fixed random direction, drawn per
 prompt, is rescaled to the real injection's per-coordinate RMS and written
@@ -363,7 +387,7 @@ judge pass.
 
 \begin{table}[t]
 \centering
-\caption{Red-team refusal adjudicated, beside the keyword count. Each (backbone, coupled) pair --- 100 per arm, and 400 for the full-width arm's extended set --- was labelled by a judge blind to the arm: does the coupled reply withhold the requested assistance, in whole or substantial part, relative to the backbone's? A fixed sample per arm (20 of 100; 40 of 400) was labelled again by an independent judge; agreement is out of that sample and every disagreement is in the results file. Exact McNemar on withholds-more against withholds-less.}
+\caption{Red-team refusal adjudicated, beside the keyword count. Each (backbone, coupled) pair --- 100 per arm, and 400 for the arms marked so --- was labelled by a judge blind to the arm: does the coupled reply withhold the requested assistance, in whole or substantial part, relative to the backbone's? A fixed sample per arm (20 of 100; 40 of 400) was labelled again by an independent judge; agreement is out of that sample and every disagreement is in the results file. Exact McNemar on withholds-more against withholds-less.}
 \label{tab:adjudicated}
 \small
 \resizebox{\textwidth}{!}{%
@@ -384,6 +408,8 @@ whole stream (4096) & $1{:}1$ & 1.00 & $6{:}0$ & \textbf{0.031} & 18 \\
 whole stream (4096), 400 prompts & $21{:}2$ & \textbf{0.0001} & $19{:}3$ & \textbf{0.0009} & 39/40 \\
 probe-best 410, parity, 400 prompts & $16{:}5$ & \textbf{0.027} & $12{:}4$ & 0.077 & 40/40 \\
 probe-worst 410, parity, 400 prompts & $15{:}2$ & \textbf{0.0023} & $21{:}5$ & \textbf{0.0025} & 39/40 \\
+value neurons (41), parity, 400 prompts & $10{:}4$ & 0.18 & $10{:}6$ & 0.45 & 40/40 \\
+top 5\% (205), parity, 400 prompts & $10{:}6$ & 0.45 & $14{:}7$ & 0.19 & 39/40 \\
 whole stream, content-free control, 400 prompts & $8{:}4$ & 0.39 & $9{:}5$ & 0.42 & 40/40 \\
 dual stack & $1{:}0$ & 1.00 & $5{:}0$ & 0.0625 & 16 \\
 \bottomrule
@@ -418,8 +444,8 @@ whole stream & 4096 & 0.2000 & 7527.8 & 100\% & 0.0939 & 0.094 \\
 
 \begin{table}[t]
 \centering
-\caption{The probe-best 410 coordinates at energy parity with the full-width write,
-against the three arms that were measured at the default cap. Energy is the summed
+\caption{The probe-best 410 coordinates, the 41 value neurons and the top 5\% at
+energy parity with the full-width write, against the arms measured at the default cap. Energy is the summed
 squared activation of the written set, relative to the whole stream; the recovered
 cap is $\mathrm{ratio}/\sigma$ from the logged evaluation, confirming the budget was
 spent rather than assumed. CE and the ordinary-request refusal are $n = 50$ at 24
@@ -438,6 +464,8 @@ value neurons & 41 & 0.200 & 3.8\% & 0.4702 & 0.0023 & $1{:}1$ (1.00) & 0.00011 
 top 5\% & 205 & 0.200 & 10.2\% & 0.4552 & 0.0098 & $3{:}2$ (1.00) & 0.00016 & 0.02 \\
 \textbf{probe-best 410} & \textbf{410} & \textbf{0.522} & \textbf{100\%} & \textbf{0.4250}
   & \textbf{0.0576} & $\mathbf{1{:}4}$ \textbf{(0.375)} & \textbf{0.0244} & \textbf{0.02} \\
+value neurons, parity & 41 & 1.025 & 100\% & 0.4363 & 0.0361 & $2{:}2$ (1.00) & 0.0243 & 0.02 \\
+top 5\%, parity & 205 & 0.626 & 100\% & 0.4280 & 0.0585 & $3{:}5$ (0.73) & 0.0179 & 0.02 \\
 whole stream & 4096 & 0.200 & 100\% & 0.3890 & 0.1047 & $0{:}6$ (0.031) & 0.0045 & 0.06 \\
 \bottomrule
 \end{tabular}}
@@ -452,7 +480,10 @@ fitted power law predicted a gain of 0.034; parity delivers 0.058. So the first
 reading of this campaign --- that the mask throttles the signal and the whole stream
 is needed to move a decision --- was substantially an artifact of the cap, and the
 honest replacement is that width and budget both matter, with budget the larger term
-over the range measured.
+over the range measured. The narrower masks, given the same parity, follow: 41
+coordinates carry 50\% of full width's gain (0.0466) and 34\% of its divergence,
+205 carry 58\% (0.0549) and 56\%, so over a tenfold range of width the fit is
+sublinear in width at fixed energy and the divergence tracks the fit.
 
 \textbf{What parity does not do is close the gap.} Two thirds is not equality, and
 the refusal move --- $1{:}4$, $p = 0.375$ --- is neither distinguishable from zero nor
@@ -585,6 +616,19 @@ has been selecting, throughout this campaign, for the coordinates one would leas
 want an alignment channel to write into.
 
 \section{Both partners at once: \psilm{}-2}
+\textbf{The narrower probe-ranked sets pay the same collateral.} At parity the 41
+value neurons and the top 5\% carry 0.0243 and 0.0179 of MMLU divergence against
+the probe-best 410's 0.0244 --- a hundredfold above the probe-worst set and the
+matched draws, four to five times the whole stream's --- and it is the same
+divergence item by item (Spearman 0.98 and 0.99 against the probe-best 410, every
+item above the probe-worst set), while their red-team divergence (0.0361, 0.0585)
+sits with the probe-worst 410's and the probe-best's respectively. So every
+probe-ranked set at parity, at 41, 205 or 410 coordinates, disturbs the same
+multiple-choice items, and not in proportion to width. Whether a magnitude-matched
+random 41 or 205 does the same --- the per-coordinate write at 41 is twice the 410
+arms' --- is what \code{match41} and \code{match205}, training as this is written,
+decide.
+
 \label{sec:dual}
 
 The physics bridge and the constitution bridge can be put on the same frozen backbone and run in one forward pass. Each reads at layer 13; the constitution channel injects at 24 and the physics channel at 26, so the physics gate reads a stream the constitution has already modified. That is the composition's only real coupling, and the implementation exposes it rather than absorbing it: every active channel's read depth must lie at or below every write depth, so that the reads all see the unmodified stream and the composition has one unambiguous order, and an interleaved configuration is refused rather than silently resolved. Together the two bridges are 73.52M parameters --- physics 45.18M, constitution 28.34M --- against nine billion frozen ones.
@@ -737,16 +781,21 @@ divergence. The probe-best 410 at matched energy, given the same 400 prompts, wi
 harmful specifics the backbone had refused; the probe-worst set does the same,
 $15{:}2$ ($p = 0.0023$), and releases the same precursor list, so that failure
 belongs to the 410-coordinate write at this energy and not to the probe's
-coordinates. The narrower masks at parity have not yet been given those prompts. And the claim that a narrow write cannot carry a
+coordinates. The narrower masks at parity, given those prompts, carry a weaker copy of the same withholding, $10{:}4$ at 41 coordinates and $10{:}6$ at 205, neither significant at $n = 400$, on largely the wide write's prompts, and release nothing harmful. And the claim that a narrow write cannot carry a
 decision is withdrawn to a weaker one: it did not, at a budget 26 times smaller
 than the one the wide write was given. At matched energy the probe-best 410
 carried most of the wide write's fit and a weaker, non-significant copy of its
 keyword shift ($1{:}4$ away${:}$toward, $p = 0.375$, on 100 items;
-Section~\ref{sec:const9b}); the 41- and 205-coordinate masks at matched energy,
-with their own magnitude-matched controls, are training as this is written, and
-until they report the honest summary of this paper's central question --- can a
-narrow, auditable write carry a disposition? --- is that it remains open, with the
-arithmetic of the interface now arranged so the question can be asked properly.
+Section~\ref{sec:const9b}); the 41- and 205-coordinate masks at matched energy
+carry half and 58\% of its fit and, on 400 prompts, a withholding in the wide
+write's direction that does not reach significance. So the honest summary of this
+paper's central question --- can a narrow, auditable write carry a disposition? ---
+is that it carries a weaker copy of one, in the same direction and on largely the
+same prompts, at the MMLU cost the probe's coordinates exact at every width
+(Section~\ref{sec:identity}); whether that copy clears significance is a question
+of strength rather than of width, and the magnitude-matched controls at 41 and
+205, training as this is written, decide whether the cost is the coordinates or
+the write.
 
 \textbf{The scaling conjecture, stated as a conjecture.} If the value signal
 occupies a fixed number of coordinates as backbones widen (Table~\ref{tab:vnknee}),
@@ -795,9 +844,9 @@ every magnitude claim and every energy figure in Table~\ref{tab:constenergy}, an
 \code{eval/const\_refusal\_mcnemar.py} regenerates the paired keyword tests, and
 \code{eval/const\_refusal\_adjudicated.py} the adjudicated ones from the per-arm labels
 under \code{results/constitution/adjudication\_qwen35/}, each with the judge's
-one-sentence reason and the re-judge's label on the sampled pairs; the full-width,
-probe-best and probe-worst 410 arms' 400-prompt labels are
-\code{const\_\allowbreak{}qwen35\_\allowbreak{}\{all,vn10e,vn10ebot\}\_\allowbreak{}rt400.json}
+one-sentence reason and the re-judge's label on the sampled pairs; the 400-prompt labels of the
+full-width, the two 410 and the two narrow parity arms are
+\code{const\_\allowbreak{}qwen35\_\allowbreak{}\{all,vn10e,vn10ebot,vn1e,vn5e\}\_\allowbreak{}rt400.json}
 (four judges of 100 pairs each, a 40-pair re-judge), the content-free control's
 are \code{const\_\allowbreak{}qwen35\_\allowbreak{}all\_\allowbreak{}rt400\_\allowbreak{}contentless.json},
 and the two-judge categorisation of every changed pair is
@@ -817,15 +866,15 @@ left in place until the queued arms finish so that every KL in the campaign shar
 one basis, after which it will be fixed and the shift quantified against the record.
 The runs in this paper --- the constitution bridges at both scales, the Qwen3.5
 physics bridge, the dual arms, and their evaluations and guard-rails --- sum to
-about 135 GPU-hours on the one M2 by the measured rates in the run logs: the
+about 165 GPU-hours on the one M2 by the measured rates in the run logs: the
 \code{psilm2} block of \code{results/compute\_summary.json}, written by
 \code{eval/total\_compute.py}, sums the \code{stage2c\_*} and \code{stage2\_qwen35}
-training logs (83 h), their 50-item evaluations (15 h) and the \code{const\_*} and
-\code{dual\_qwen35\_*} guard-rails (37 h), excluding value-neuron state collection
+training logs (98 h), their 50-item evaluations (18 h) and the \code{const\_*} and
+\code{dual\_qwen35\_*} guard-rails (49 h), excluding value-neuron state collection
 and probe training, data building, the partner's fine-tune and the 0.5B ablations
 (the file's unscoped totals also count the companion paper's runs). The arms still
-queued at submission (the 41- and 205-coordinate masks at parity, their controls,
-and the 9B plain-partner twins) add about 55 more.
+queued at submission (the matched controls at 41 and 205 coordinates and the 9B
+plain-partner twins) add about 40 more.
 
 \section{AI Generation Disclosure}
 \label{sec:disclosure2}

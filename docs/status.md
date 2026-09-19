@@ -1,6 +1,6 @@
 # What is measured, and what it does not establish
 
-Last updated 2026-09-20 (vn5e landed 00:59). Every number here was produced by the harness in
+Last updated 2026-09-20 (both narrow parity arms adjudicated on 400 prompts, 09:30). Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM) and traces to a committed file there;
 the paper ([`paper/psilm2.pdf`](../paper/psilm2.pdf)) is the full account.
 
@@ -102,6 +102,8 @@ with an independent re-judge on a fixed sample:
 | whole stream | 21:2 | 0.0001 | 19:3 (0.0009) | 39/40 |
 | probe-best 410, parity | 16:5 | 0.027 | 12:4 (0.077) | 40/40 |
 | probe-worst 410, parity | 15:2 | 0.0023 | 21:5 (0.0025) | 39/40 |
+| value neurons 41, parity | 10:4 | 0.18 | 10:6 (0.45) | 40/40 |
+| top 5% 205, parity | 10:6 | 0.45 | 14:7 (0.19) | 39/40 |
 | whole stream, content-free control | 8:4 | 0.39 | 9:5 (0.42) | 40/40 |
 
 At n = 100 no arm had cleared p < 0.05 on substance; the effect sits in the 300
@@ -118,6 +120,16 @@ to the real injection's per-coordinate RMS through the identical gate — carrie
 one-directional withholding is the document's content. It also flips the one
 prompt every arm flips (an underage-drink workaround), which is therefore a
 knife-edge of the backbone's own reply and not a judgment the document supplied.
+The two narrow parity arms, given the same 400 prompts (2026-09-20), carry a
+weaker copy of the wide write's withholding rather than a different one: 10:4
+and 10:6, neither significant, eight of each arm's ten withholdings on the wide
+write's prompts and seven shared between them. Their category judges agree on
+every changed pair: the 41 withholds harmful specifics twice (the underage-drink
+workaround and chloroform synthesis routes), the 205 once, the rest legitimate
+or dual-use; their gains are legitimate content, and neither releases the
+harmful specifics the 410 arms release. Across the five arms: withheld 53
+legitimate, 11 dual-use, 7 harmful; released 14 legitimate, 1 dual-use, 3
+harmful (all three by the 410 arms).
 
 **The partner control, at 0.5B.** A bridge to the *untouched* base model (same
 architecture, no constitution in its weights) matched or beat its
@@ -128,13 +140,11 @@ interval excluding zero, and at full width the two are indistinguishable
 what the channel carried; it entered through the self-distillation teacher's
 context. The 9B twins are queued (below).
 
-## Running (as of 2026-09-18, in queue order)
+## Running (as of 2026-09-20, in queue order)
 
-- the 41- and 205-coordinate parity arms on the 400 red-team prompts (both
-  landed on the 100-item guard-rail, above): whether the narrowest writes carry
-  the wide write's withholding on the set that showed it;
-- their magnitude-matched random controls (`match41`, `match205`): whether
-  identity costs collateral at these widths too;
+- the magnitude-matched random controls of the two narrow parity arms
+  (`match41`, `match205`; match41 training since 08:47): whether identity costs
+  collateral at these widths too;
 - the full-width plain-partner twin (`allplain`) on the 400 red-team prompts:
   whether the 21:2 needs the fine-tuned partner at all;
 - the narrow plain-partner twins (`vn1eplain`, `vn5eplain`).
@@ -142,9 +152,10 @@ context. The 9B twins are queued (below).
 ## What none of it establishes
 
 - That a narrow, auditable write can carry a disposition: at the default cap it
-  did not, at matched energy 410 coordinates carry most of the wide write's fit
-  and a weaker copy of its withholding, and 41 and 205 at parity are still
-  running.
+  did not; at matched energy 410 coordinates carry most of the wide write's fit
+  and a weaker copy of its withholding, and 41 and 205 carry half to 58% of the
+  fit and a still weaker copy (10:4, 10:6, neither significant on 400 prompts)
+  in the same direction on largely the same prompts, releasing nothing harmful.
 - That the constitution partner contributes anything at 9B beyond being a
   carrier: the 0.5B control says it does not, and the 9B control is queued.
 - That any of this is alignment in a useful sense: what the channel carries, on
