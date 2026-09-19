@@ -615,7 +615,6 @@ identity is irrelevant --- it plainly is not, at 98$\times$ --- but that the pro
 has been selecting, throughout this campaign, for the coordinates one would least
 want an alignment channel to write into.
 
-\section{Both partners at once: \psilm{}-2}
 \textbf{The narrower probe-ranked sets pay the same collateral.} At parity the 41
 value neurons and the top 5\% carry 0.0243 and 0.0179 of MMLU divergence against
 the probe-best 410's 0.0244 --- a hundredfold above the probe-worst set and the
@@ -629,6 +628,7 @@ random 41 or 205 does the same --- the per-coordinate write at 41 is twice the 4
 arms' --- is what \code{match41} and \code{match205}, training as this is written,
 decide.
 
+\section{Both partners at once: \psilm{}-2}
 \label{sec:dual}
 
 The physics bridge and the constitution bridge can be put on the same frozen backbone and run in one forward pass. Each reads at layer 13; the constitution channel injects at 24 and the physics channel at 26, so the physics gate reads a stream the constitution has already modified. That is the composition's only real coupling, and the implementation exposes it rather than absorbing it: every active channel's read depth must lie at or below every write depth, so that the reads all see the unmodified stream and the composition has one unambiguous order, and an interleaved configuration is refused rather than silently resolved. Together the two bridges are 73.52M parameters --- physics 45.18M, constitution 28.34M --- against nine billion frozen ones.
