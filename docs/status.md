@@ -1,6 +1,6 @@
 # What is measured, and what it does not establish
 
-Last updated 2026-09-19. Every number here was produced by the harness in
+Last updated 2026-09-19 (vn1e landed 12:32). Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM) and traces to a committed file there;
 the paper ([`paper/psilm2.pdf`](../paper/psilm2.pdf)) is the full account.
 
@@ -55,11 +55,26 @@ Every arm saturated the cap, which bounds the per-coordinate write, so the narro
 masks received 3.8% and 10.2% of full width's write energy. At **energy parity**
 (the cap raised to match):
 
-| 410 coordinates at parity | cap | CE gain vs full width | red-team KL | MMLU KL |
+| coordinates at parity | cap | CE gain vs full width | red-team KL | MMLU KL |
 |---|---:|---:|---:|---:|
 | probe-best 410 | 0.522 | 62% | 0.0576 | **0.0244** |
 | probe-worst 410 | 0.551 | 53% | 0.0371 | 0.00024 |
 | matched draws 0, 1, 2 | 0.56 | 51%, 45%, 46% | 0.034, 0.025, 0.029 | 0.00026, 0.00022, 0.00027 |
+| value neurons, top 1% (41), `vn1e` | 1.025 | 50% | 0.0361 | **0.0243** |
+
+The 41 value neurons at parity (landed 2026-09-19 12:32; realized cap 1.0253 on
+1.0252) carry half of full width's red-team-split gain where the same 41 at the
+default cap carried 14%, leave GSM8K item-identical (83/83) and MMLU accuracy at
+75/75, flip the keyword refusal count 2:2 (p = 1.0), and pay the probe-best 410's
+MMLU divergence to the digit: 0.0243 against 0.0244, a hundredfold above the
+probe-worst 410 and the matched draws, and five times the whole stream's. Item
+by item it is the same divergence (Spearman 0.98 against the probe-best 410,
+1.3× per item; above the probe-worst 410 on 100 of 100 items), while its
+red-team divergence is indistinguishable from the probe-worst 410's (49 of 100
+items higher, median ratio 1.00). Its
+magnitude-matched random 41 (`match41`) is queued and decides whether that is
+the coordinates or the per-coordinate write size (1.025 is twice the 410 arms'
+cap).
 
 The probe's coordinates fit the teacher 1.33× better than the four controls on
 the held-out split (z = 3.87) and 1.27× on the red-team split (z = 3.3), and pay
@@ -105,8 +120,8 @@ context. The 9B twins are queued (below).
 
 ## Running (as of 2026-09-18, in queue order)
 
-- the 41- and 205-coordinate masks at energy parity (`vn1e`, `vn5e`), then
-  their magnitude-matched random controls (`match41`, `match205`): whether the
+- the 205-coordinate mask at energy parity (`vn5e`; `vn1e` landed, above), then
+  the magnitude-matched random controls (`match41`, `match205`): whether the
   narrowest writes carry the same blunter refusal at matched energy, and whether
   identity costs collateral there too;
 - the full-width plain-partner twin (`allplain`) on the 400 red-team prompts:
