@@ -1,6 +1,6 @@
 # What is measured, and what it does not establish
 
-Last updated 2026-09-20 (both narrow parity arms adjudicated on 400 prompts, 09:30). Every number here was produced by the harness in
+Last updated 2026-09-20 (the magnitude-matched random 41 control landed, 21:35). Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM) and traces to a committed file there;
 the paper ([`paper/psilm2.pdf`](../paper/psilm2.pdf)) is the full account.
 
@@ -62,6 +62,7 @@ masks received 3.8% and 10.2% of full width's write energy. At **energy parity**
 | matched draws 0, 1, 2 | 0.56 | 51%, 45%, 46% | 0.034, 0.025, 0.029 | 0.00026, 0.00022, 0.00027 |
 | value neurons, top 1% (41), `vn1e` | 1.025 | 50% | 0.0361 | **0.0243** |
 | top 5% (205), `vn5e` | 0.626 | 58% | 0.0585 | **0.0179** |
+| matched random 41, `match41` | 1.101 | 24% | 0.0175 | 0.00027 |
 
 The 41 value neurons at parity (landed 2026-09-19 12:32; realized cap 1.0253 on
 1.0252) carry half of full width's red-team-split gain where the same 41 at the
@@ -81,10 +82,17 @@ the same item pattern again (Spearman 0.99 against the probe-best 410, 0.98
 against the 41), a hundredfold above the probe-worst 410 and four times the
 whole stream's. So every probe-ranked set at parity, 41, 205 or 410, disturbs
 the same multiple-choice items, and not in proportion to width. The
-magnitude-matched random 41 and 205 (`match41`, `match205`) are queued and
-decide whether that is the coordinates or the per-coordinate write size (the
-41's cap is twice the 410 arms'). Both narrow arms are being run on the 400
-red-team prompts first, for adjudication.
+magnitude-matched random 41 (`match41`; landed 2026-09-20 21:35; cap 1.1013,
+realized 1.1012, the largest per-coordinate write in the campaign at 5.5× the
+default cap and twice the 410 arms') decides it at 41: the coordinates, not the
+write size. Its MMLU divergence is 0.00027, where the four 410-coordinate
+controls sit (median per-item ratio 1.00 against each), below the value neurons
+on 100 of 100 items at a median per-item ratio of 133×, with MMLU, GSM8K and
+BoolQ each item-identical to the backbone (75/75, 83/83, 90/90). It reaches 57%
+of the value neurons' held-out fit (0.0249 against 0.0434 at step 1000) and 49%
+on the red-team split, at half their red-team divergence (0.0175 against
+0.0361), flipping the keyword count 1:3 (p = 0.63). The identity margin at 41
+(1.7–2.1×) is wider than at 410 (1.3×). `match205` is training.
 
 The probe's coordinates fit the teacher 1.33× better than the four controls on
 the held-out split (z = 3.87) and 1.27× on the red-team split (z = 3.3), and pay
@@ -142,9 +150,8 @@ context. The 9B twins are queued (below).
 
 ## Running (as of 2026-09-20, in queue order)
 
-- the magnitude-matched random controls of the two narrow parity arms
-  (`match41`, `match205`; match41 training since 08:47): whether identity costs
-  collateral at these widths too;
+- the magnitude-matched random 205 (`match205`, training since 21:35 on
+  2026-09-20): whether the 41 result holds at 205;
 - the full-width plain-partner twin (`allplain`) on the 400 red-team prompts:
   whether the 21:2 needs the fine-tuned partner at all;
 - the narrow plain-partner twins (`vn1eplain`, `vn5eplain`).
