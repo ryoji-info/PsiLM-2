@@ -1,6 +1,6 @@
 # What is measured, and what it does not establish
 
-Last updated 2026-09-21 (both magnitude-matched narrow controls landed; match205 at 10:00). Every number here was produced by the harness in
+Last updated 2026-09-21 (the 9B plain-partner twin landed and was adjudicated; the narrow plain twins were dropped at 23:09). Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM) and traces to a committed file there;
 the paper ([`paper/psilm2.pdf`](../paper/psilm2.pdf)) is the full account.
 
@@ -156,13 +156,25 @@ is better by 0.0040 of per-item cross-entropy, 95% [−0.0079, −0.0009], an
 interval excluding zero, and at full width the two are indistinguishable
 (−0.0096, 95% [−0.0302, +0.0125]). The document in the partner's weights was not
 what the channel carried; it entered through the self-distillation teacher's
-context. The 9B twins are queued (below).
+context.
 
-## Running (as of 2026-09-21, in queue order)
+**The partner control, at 9B.** The full-width twin against the plain
+Qwen2.5-0.5B-Instruct partner (`allplain`; landed 2026-09-21 23:01) is the
+fine-tuned partner's arm to the item: held-out CE 0.3900 against 0.3904 at step
+1000, keyword count 19:3 (p = 0.0009) with 18 of the 22 flipped prompts shared,
+adjudicated 19:3 (p = 0.0009, re-judge 40/40) against 21:2 with fifteen pairs
+shared and the same kind of withholding (2 harmful specifics, 5 mixed, 11
+legitimate, one disagreement, against the fine-tuned arm's 2, 4 and 15), at 15%
+more divergence (0.1194 against 0.1040, higher on 399 of 400 prompts). The document in the partner's weights is not what the channel carries
+at 9B either; it enters through the self-distillation teacher's context. The
+narrow twins (`vn1eplain`, `vn5eplain`) were dropped on this result.
 
-- the full-width plain-partner twin (`allplain`, training since 2026-09-21 10:02) on the 400 red-team prompts:
-  whether the 21:2 needs the fine-tuned partner at all;
-- the narrow plain-partner twins (`vn1eplain`, `vn5eplain`).
+## Running (as of 2026-09-21 23:09)
+
+- nothing. The queue is empty: the full-width plain-partner twin landed
+  (above), and the narrow plain-partner twins (`vn1eplain`, `vn5eplain`) were
+  dropped at 23:09 on 2026-09-21 because the full-width twin left them no
+  question to answer (`results/qwen35/plainpartner_widths.sh` reinstates them).
 
 ## What none of it establishes
 
@@ -172,7 +184,9 @@ context. The 9B twins are queued (below).
   fit and a still weaker copy (10:4, 10:6, neither significant on 400 prompts)
   in the same direction on largely the same prompts, releasing nothing harmful.
 - That the constitution partner contributes anything at 9B beyond being a
-  carrier: the 0.5B control says it does not, and the 9B control is queued.
+  carrier: the 0.5B control says it does not, and the 9B control at full width
+  says the same on fit, keyword count and adjudicated substance (19:3 against
+  the fine-tuned partner's 21:2, fifteen pairs shared).
 - That any of this is alignment in a useful sense: what the channel carries, on
   the evidence so far, is a blunter refusal paid for mostly in helpfulness, with
   a hundredfold divergence on multiple-choice reasoning when it writes into the
