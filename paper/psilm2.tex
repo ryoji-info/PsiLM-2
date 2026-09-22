@@ -519,8 +519,8 @@ dimensionality or the diminishing return of spending perturbation is what the
 identity control speaks to.
 
 \textbf{The narrow write is tighter in three places and looser in one.} Against full
-width at the same total energy it halves the GSM8K divergence (0.00014 against
-0.00035), cuts BoolQ's by a third (0.00032 against 0.00091), moves no BoolQ item, and
+width at the same total energy it cuts the GSM8K divergence to two fifths (0.00014
+against 0.00035) and BoolQ's to a third (0.00032 against 0.00091), moves no BoolQ item, and
 --- the result that matters most for an alignment channel --- leaves ordinary-request
 refusal at the backbone's 0.02 where full width rose to 0.06, so it acquires the
 teacher's judgment on the harmful split without acquiring its over-refusal on the
@@ -667,7 +667,7 @@ either side: every probe-ranked set at parity pays 0.018--0.024 and every one of
 the six matched sets pays 0.0002--0.0003. The collateral is the coordinates and
 not the write. The hardest per-coordinate write in the campaign into random
 coordinates costs the benchmarks nothing, and the same write into the probe's
-coordinates costs the probe-best 410's divergence to the digit.
+coordinates costs as much as the probe-best 410 (MMLU KL 0.0243 against 0.0244).
 
 \section{Both partners at once: \psilm{}-2}
 \label{sec:dual}
@@ -902,19 +902,41 @@ or ``(C)'' then end-of-sequence; every one scored as wrong in every arm, so base
 read 64 where it is 75, and an arm that reformatted a few of those answers read as an
 accuracy gain. \code{eval/rescore\_mmlu.py} regenerates every tracked summary with the
 repaired parser; every MMLU accuracy in this paper is the rescored one, and the KL
-columns, which are teacher-forced, never touched the parser. Separately, the
-teacher-forced KL path pools the forward readout over prompt \emph{and} continuation
-where generation pools over the prompt alone; the discrepancy is common-mode across
-arms and small (about 2\% of the KL mean on a small stack), and it is deliberately
-left in place until the queued arms finish so that every KL in the campaign shares
-one basis, after which it will be fixed and the shift quantified against the record.
+columns, which are teacher-forced, never touched the parser.
+
+\textbf{A third correction: the KL read, 2026-09-22.} The teacher-forced KL pass let
+the forward readout pool over the prompt \emph{and} the base continuation, where
+generation pools over the prompt alone. It was left in place until the last arm
+finished, so that every KL in the campaign shares one basis, and then fixed
+(\code{eval/bench\_guardrail.py --kl-pool prompt}, now the default); every
+guard-rail KL in this paper was recomputed under both reads on each run's own base
+continuations (\code{eval/\allowbreak{}kl\_rescore\_all.py}, cell by cell in
+\code{results/\allowbreak{}constitution/\allowbreak{}kl\_pool\_shift.json}). The
+legacy read reproduces all 11,400 recorded per-item KLs to $10^{-6}$. \emph{The tables
+and text keep the recorded read}, which the run summaries carry. Under the corrected
+read the median cell mean moves by 1.1\% (59 of 90 cells within 2\%, 73 within
+5\%). Every 9B cell above $10^{-3}$ moves by between $-2.8\%$ and $+6.8\%$. The
+largest shifts are at 0.5B, where the red-team and GSM8K divergences of the 45-dimension
+and full-width writes fall by 9--13\% (full width's GSM8K KL of $2.2\times10^{-2}$
+is $2.0\times10^{-2}$). The shift is not quite common-mode, so ratios move by a few
+percent. The probe-best 410's MMLU separation from its four controls is 103$\times$
+rather than 98$\times$, and its excess over full width is 5.1$\times$ rather than
+5.4$\times$. The dual stack's MMLU divergence is fifteen times the constitution
+channel's rather than sixteen, and the 9B KL selectivities are 48$\times$,
+120$\times$ and 308$\times$ rather than 48$\times$, 119$\times$ and 302$\times$. An
+audit of the 169 KL-derived numbers in this paper found that about half change in
+their last printed digit and none changes a claim. On every non-physics cell above
+$10^{-3}$ the two reads rank prompts alike (Spearman 0.83--1.00). The exception is a
+cell this paper does not use: on its own physics prompts the physics bridge's per-item
+KLs are reordered (Spearman 0.04, mean within 0.2\%), because the legacy read let its
+readout see the base's derivation.
 The runs in this paper --- the constitution bridges at both scales, the Qwen3.5
 physics bridge, the dual arms, and their evaluations and guard-rails --- sum to
-about 200 GPU-hours on the one M2 by the measured rates in the run logs: the
+about 214 GPU-hours on the one M2 by the measured rates in the run logs: the
 \code{psilm2} block of \code{results/compute\_summary.json}, written by
 \code{eval/total\_compute.py}, sums the \code{stage2c\_*} and \code{stage2\_qwen35}
-training logs (120 h), their 50-item evaluations (22 h) and the \code{const\_*} and
-\code{dual\_qwen35\_*} guard-rails (58 h), excluding value-neuron state collection
+training logs (120 h), their 50-item evaluations (22 h), the \code{const\_*} and
+\code{dual\_qwen35\_*} guard-rails (58 h) and the recomputation of their KLs (14 h), excluding value-neuron state collection
 and probe training, data building, the partner's fine-tune and the 0.5B ablations
 (the file's unscoped totals also count the companion paper's runs). Nothing is
 queued: the plain-partner twins at 41 and 205 coordinates were dropped once the

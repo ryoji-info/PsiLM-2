@@ -1,6 +1,6 @@
 # What is measured, and what it does not establish
 
-Last updated 2026-09-21 (the 9B plain-partner twin landed and was adjudicated; the narrow plain twins were dropped at 23:09). Every number here was produced by the harness in
+Last updated 2026-09-23 (every guard-rail KL recomputed under the corrected read; the 9B plain-partner twin landed and was adjudicated on 2026-09-21). Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM) and traces to a committed file there;
 the paper ([`paper/psilm2.pdf`](../paper/psilm2.pdf)) is the full account.
 
@@ -169,12 +169,31 @@ more divergence (0.1194 against 0.1040, higher on 399 of 400 prompts). The docum
 at 9B either; it enters through the self-distillation teacher's context. The
 narrow twins (`vn1eplain`, `vn5eplain`) were dropped on this result.
 
-## Running (as of 2026-09-21 23:09)
+**The KL read, corrected (2026-09-22).** The teacher-forced KL pass let the
+coupling read the prompt and the base continuation, where every arm's decode
+reads the prompt alone. The fix (`bench_guardrail.py --kl-pool prompt`, now the
+default) came after the last arm, and every recorded KL was recomputed under
+both reads (`eval/kl_rescore_all.py` → `results/constitution/kl_pool_shift.json`
+in ΨLM). The legacy read reproduces all 11,400 of this project's per-item KLs to
+1e-6. The numbers here and in the paper keep the recorded read. Under the
+corrected one the median cell moves 1.1%, and every 9B cell above 1e-3 moves
+between −2.8% and +6.8%. At 0.5B the widest writes' GSM8K and red-team KLs fall
+9–13%. The ratios move a few percent: the probe-best 410's MMLU separation goes
+from 98× to 103×, its excess over full width from 5.4× to 5.1×, the dual stack
+over the constitution channel from 16× to 15×, and the KL selectivity from
+48/119/302× to 48/120/308×. An audit of the paper's 169 KL-derived numbers found
+no claim that changes.
 
-- nothing. The queue is empty: the full-width plain-partner twin landed
-  (above), and the narrow plain-partner twins (`vn1eplain`, `vn5eplain`) were
-  dropped at 23:09 on 2026-09-21 because the full-width twin left them no
-  question to answer (`results/qwen35/plainpartner_widths.sh` reinstates them).
+## Running (as of 2026-09-23)
+
+- nothing for this paper. Every arm has landed and every KL has been recomputed
+  under the corrected read (above). The narrow plain-partner twins (`vn1eplain`,
+  `vn5eplain`) were dropped at 23:09 on 2026-09-21, because the full-width twin
+  left them no question to answer (`results/qwen35/plainpartner_widths.sh`
+  reinstates them).
+- Outside this paper, the GPU finishes the KL recomputation of the companion
+  paper's Gemma leaky-gate sweep. It then trains a full-width constitution bridge
+  on Ternary Bonsai 2 27B for the PsiLM-chat app (`results/bonsai/`).
 
 ## What none of it establishes
 
