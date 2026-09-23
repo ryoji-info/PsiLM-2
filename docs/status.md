@@ -191,9 +191,9 @@ no claim that changes.
   `vn5eplain`) were dropped at 23:09 on 2026-09-21, because the full-width twin
   left them no question to answer (`results/qwen35/plainpartner_widths.sh`
   reinstates them).
-- Outside this paper, the GPU finishes the KL recomputation of the companion
-  paper's Gemma leaky-gate sweep. It then trains a full-width constitution bridge
-  on Ternary Bonsai 2 27B for the PsiLM-chat app (`results/bonsai/`).
+- Outside this paper, the GPU is training a full-width constitution bridge on
+  Ternary Bonsai 2 27B for the PsiLM-chat app (`results/bonsai/`). It started
+  2026-09-23 13:57, after the companion paper's Gemma sweep was recomputed.
 
 ## What none of it establishes
 
