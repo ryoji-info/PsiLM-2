@@ -184,16 +184,63 @@ over the constitution channel from 16× to 15×, and the KL selectivity from
 48/119/302× to 48/120/308×. An audit of the paper's 169 KL-derived numbers found
 no claim that changes.
 
-## Running (as of 2026-09-23)
+**What the channel reads, and what its fit measures (2026-09-28 and 29).** Two
+measurements made after the campaign, and two experiments with criteria committed
+before they ran (paper, Section 10; ΨLM `results/constitution/prereg_verdict.json`).
 
-- nothing for this paper. Every arm has landed and every KL has been recomputed
-  under the corrected read (above). The narrow plain-partner twins (`vn1eplain`,
+- *The write does not depend on what was read.* Teacher-forced, giving the trained
+  full-width bridge another prompt's tokens moves the output by a KL of 0.00032,
+  where the write itself moves it by 0.0652 and half-precision rounding by 0.00028.
+  A partner fed zeros: 0.0014. Twelve of the thirteen single-channel 9B arms
+  behave this way (0.0002 to 0.0014 against 0.002 to 0.070); matched random 205
+  is the exception (up to 0.0029). At 0.5B the prompt's own tokens matter:
+  another prompt's move the output by 0.035 of the write's 0.222. What tells a
+  red-team prompt from an arithmetic one is the gate: 0.48 against 0.014.
+- *Most of the fit is sharpening.* With the backbone and the coupled system each
+  read at its own best temperature (cross-fitted), 0.0403 of full width's red-team
+  gain of 0.0939 is left (0.028 to 0.058) and 0.0041 of 0.0576 on helpful prompts
+  (interval includes zero, as for every arm). Narrow arms keep 0.012 or less. The
+  probe-best 410 keeps 0.0073 against 0.0072 to 0.0120 for its four controls, so
+  "the probe's coordinates fit the teacher better" was sharpening on the
+  red-team and helpful splits (the validation split was not scored again). The
+  masked writes at the default cap keep nothing (-0.0014 and 0.0012), so their
+  efficiency per unit of energy and their "manner" were sharpening too. By KL to
+  the teacher's own distribution no arm moves measurably toward the teacher
+  (backbone 0.140, arms 0.144 to 0.227). Not run at 0.5B.
+- *Stored tokens (pre-registered).* The full-width bridge fed one stored set of
+  tokens for every prompt, 400 prompts, adjudicated blind: the mean of 100
+  validation prompts' tokens 21:3 (p 0.0003), **survived**; the tokens of a
+  partner fed zeros 13:5 (p 0.096), **partial**. The recorded arm is 21:2. Shown
+  for the full-width arm on the red-team prompts only.
+- *No partner (pre-registered).* The full-width recipe trained with a constant in
+  place of the partner: keyword 20:4, adjudicated 14:2 (p 0.0042), cross-entropy
+  and guard-rail within the bounds: **match**, with the adjudicated criterion (at
+  least 14) met with nothing to spare, as is the guard-rail's bound on GSM8K
+  (87 against 84, three items allowed).
+- *Two runs a recipe (pre-registered reading).* With the partner 21:2 and 16:3;
+  without 14:2 and 14:2. The ranges are disjoint and the gap of 4.5 is under
+  twice the 5 between the two runs with the partner: **unresolved**.
+- *The judges.* 82 language-model judges in three rounds. Seven were stopped by a
+  safety classifier before returning a label (five files). The first such file
+  was given unchanged to three judges in turn; from then on a stopped file was
+  not put to a further judge as it was. Each of the five was judged once as six
+  smaller files, all thirty complete. Seven more judges were stopped once and
+  then returned every label; the labels are kept and no verdict changes with
+  their pairs left out. Every judge read its own file and nothing else.
+
+## Running (as of 2026-09-29)
+
+- nothing for this paper. Every arm has landed, every KL has been recomputed
+  under the corrected read (above), and the follow-up of 2026-09-28 and 29 has
+  its verdicts. The narrow plain-partner twins (`vn1eplain`,
   `vn5eplain`) were dropped at 23:09 on 2026-09-21, because the full-width twin
   left them no question to answer (`results/qwen35/plainpartner_widths.sh`
   reinstates them).
-- Outside this paper, the GPU is training a full-width constitution bridge on
-  Ternary Bonsai 2 27B for the PsiLM-chat app (`results/bonsai/`). It started
-  2026-09-23 13:57, after the companion paper's Gemma sweep was recomputed.
+- Outside this paper, a full-width constitution bridge was trained on Ternary
+  Bonsai 2 27B for the PsiLM-chat app (`results/bonsai/`, 2026-09-24). Its
+  cross-entropy gain (0.4255 to 0.2992) is sharpening in full: read at its best
+  temperature the backbone reaches 0.263, the coupled system 0.263; and the
+  write is independent of the prompt to a KL of 0.00007 against 0.0856.
 
 ## What none of it establishes
 
@@ -205,7 +252,14 @@ no claim that changes.
 - That the constitution partner contributes anything at 9B beyond being a
   carrier: the 0.5B control says it does not, and the 9B control at full width
   says the same on fit, keyword count and adjudicated substance (19:3 against
-  the fine-tuned partner's 21:2, fifteen pairs shared).
+  the fine-tuned partner's 21:2, fifteen pairs shared). The follow-up goes
+  further: the write does not read the carrier's cargo, and a bridge trained
+  with no partner withholds on 14 pairs against 2 in each of two runs. Whether
+  the partner adds the difference to 16 and 21 is unresolved with two runs a
+  recipe.
+- That cross-entropy against the teacher measures nearness to the teacher: most
+  of it is confidence, and by divergence from the teacher's distribution no arm
+  moves toward it. Every "fit" in the paper is the fit as evaluated.
 - That any of this is alignment in a useful sense: what the channel carries, on
   the evidence so far, is a blunter refusal paid for mostly in helpfulness, with
   a hundredfold divergence on multiple-choice reasoning when it writes into the

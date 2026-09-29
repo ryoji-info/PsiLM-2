@@ -37,11 +37,12 @@ companion physics paper is [`paper/psilm.pdf`](paper/psilm.pdf).
    100–200, at d = 896 and at d = 4096.** As models grow it is a falling fraction.
 3. **Width was budget, and the probe's coordinates cost collateral.** At the
    saturated default cap the narrow writes (41 and 205 coordinates) leave the
-   keyword refusal count where it was (1:1 and 2:3 flips) and carry the
-   teacher's manner rather than its judgment. At matched energy, 410 coordinates carry 62% of full width's
-   cross-entropy gain and 55% of its divergence. The probe's own 410 fit the
-   teacher 1.3× better than four magnitude-matched controls (z ≈ 3.9) and pay
-   98× their MMLU divergence for it. On 400 red-team prompts, adjudicated on
+   keyword refusal count where it was (1:1 and 2:3 flips) and carry none of the
+   teacher's judgment. At matched energy, 410 coordinates carry 62% of full width's
+   cross-entropy gain as evaluated and 55% of its divergence. The probe's own 410
+   fit the teacher 1.3× better than four magnitude-matched controls (z ≈ 3.9) on
+   cross-entropy as evaluated, a margin that finding 5 shows to be sharpening, and
+   pay 98× their MMLU divergence. On 400 red-team prompts, adjudicated on
    substance by blind judges against a written rubric, the full-width write
    withholds the requested assistance on 21 pairs and supplies it on 2
    (p = 0.0001); both 410 writes at parity do the same (16:5, 15:2). What is
@@ -59,6 +60,22 @@ companion physics paper is [`paper/psilm.pdf`](paper/psilm.pdf).
    composition is not inert on the backbone (MMLU divergence 0.072 where the
    constitution channel alone stayed at 0.005 and the physics channel alone sits
    at 0.041, with no significant accuracy change: MMLU 75 → 77, 3:1, p = 0.63).
+
+5. **Most of the cross-entropy gain is sharpening, and at 9B the write does not
+   depend on what the channel read.** Two controls made after the campaign, and
+   two experiments with criteria committed before they ran. With the backbone and
+   the coupled system each read at its own best temperature, 0.040 of full
+   width's red-team gain of 0.094 is left and the narrow writes keep 0.012 or
+   less; by divergence from the teacher's own distribution no arm moves
+   measurably toward the teacher. Another prompt's tokens move the full-width
+   output by a KL of 0.0003 where the write itself moves it by 0.065. The
+   full-width bridge fed one stored set of tokens for every prompt (the mean of
+   100 other prompts') reproduces the withholding, 21:3; a set made from no
+   prompt carries a weaker copy, 13:5. A bridge trained with no partner at all
+   withholds on 14 pairs against 2, in each of two runs, where two runs with the
+   partner give 21 and 16; two runs a recipe do not settle whether the partner
+   adds the difference. No adjudicated count of findings 3 and 4 moves; every
+   "fit" in them is the fit as evaluated.
 
 [docs/status.md](docs/status.md) records every measurement, what is still
 running, and what none of it establishes. Read it before treating anything here
