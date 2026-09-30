@@ -214,6 +214,12 @@ no-harm prompts — but it paid
 distinguishable from zero to begin with. The control paid +0.0066 and left more
 interference than the untrained stack had. Both are bad trades.
 
+(Added 2026-09-30. Every cost in the two paragraphs above is a constitution
+cross-entropy as evaluated. The temperature control that later showed most of
+the 9B cross-entropy gain to be sharpening was not run on the dual stack, so
+these verdicts have not been held to it; the physics accuracy of 1.000 does not
+rest on cross-entropy.)
+
 So the recommendation this document exists to give is: **warm-start both channels
 from their trained checkpoints and do not train the composition.** Phase 0 is the
 whole recipe. The schedule below it is correct, tested and unnecessary.

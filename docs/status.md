@@ -1,6 +1,6 @@
 # What is measured, and what it does not establish
 
-Last updated 2026-09-23 (every guard-rail KL recomputed under the corrected read; the 9B plain-partner twin landed and was adjudicated on 2026-09-21). Every number here was produced by the harness in
+Last updated 2026-09-30 (the temperature control run at 0.5B and read by rules committed before it; the stored tokens tested on the benchmarks by criteria written before the runs; before that, the follow-up of 2026-09-28 and 29, and every guard-rail KL recomputed under the corrected read on 2026-09-22). Every number here was produced by the harness in
 [ΨLM](https://github.com/ryoji-info/PsiLM) and traces to a committed file there;
 the paper ([`paper/psilm2.pdf`](../paper/psilm2.pdf)) is the full account.
 
@@ -19,7 +19,9 @@ stream. Three arms on 50 held-out red-team and 50 held-out physics items:
 | gate phase, λ_cross = 0 | 0.39564 → 0.39658 | +0.00094, no interval | 1.000 | regressed |
 
 The composition costs nothing measurable on either payload and joint training
-buys nothing, so the joint phase is documented as not worth running. It is not
+buys nothing, so the joint phase is documented as not worth running. (The
+constitution-side costs are cross-entropy as evaluated; the temperature control
+below was not run on the dual stack.) It is not
 inert on the backbone: on the four-dataset guard-rail the both-open arm's MMLU
 divergence is 0.072 where the constitution channel alone stayed at 0.005, with
 no significant accuracy change (MMLU 75 → 77, 3:1, p = 0.63; after a parser
@@ -98,14 +100,17 @@ says the same at 205: MMLU divergence 0.00021, below the top 5% on 100 of 100
 items (median per-item ratio 99×), MMLU accuracy item-identical and GSM8K and
 BoolQ within one item, 64% of the top 5%'s fit on both splits at a third of its
 red-team divergence (0.0193 against 0.0585), keyword flips 2:4 (p = 0.69). So
-the identity margin on fit widens as the write narrows (1.3× at 410, 1.6× at
-205, 1.7–2.1× at 41) while the collateral does not move with width on either
+the identity margin on fit as evaluated widens as the write narrows (1.3× at 410,
+1.6× at 205, 1.7–2.1× at 41; at best temperature the margin is not
+distinguishable from zero at any of the three, see below) while the collateral does not move with width on either
 side: every probe-ranked set at parity pays 0.018–0.024 and every one of the six
 matched sets pays 0.0002–0.0003. The collateral is the coordinates, not the
 write.
 
 The probe's coordinates fit the teacher 1.33× better than the four controls on
-the held-out split (z = 3.87) and 1.27× on the red-team split (z = 3.3), and pay
+the held-out split (z = 3.87) and 1.27× on the red-team split (z = 3.3), on
+cross-entropy as evaluated (at best temperature the 1.27× is gone, see below; the
+held-out split was not scored again), and pay
 98× the controls' MMLU divergence for it: coordinate identity, not magnitude,
 predicts collateral, and the probe selects the coordinates one would least want
 an alignment channel to write into.
@@ -154,9 +159,13 @@ architecture, no constitution in its weights) matched or beat its
 constitution-partner twin at every width: at nine coordinates the plain partner
 is better by 0.0040 of per-item cross-entropy, 95% [−0.0079, −0.0009], an
 interval excluding zero, and at full width the two are indistinguishable
-(−0.0096, 95% [−0.0302, +0.0125]). The document in the partner's weights was not
-what the channel carried; it entered through the self-distillation teacher's
-context.
+(−0.0096, 95% [−0.0302, +0.0125]). Those are cross-entropies as evaluated. Read
+at best temperature on the red-team prompts by rules committed beforehand
+(2026-09-30, below), the full-width null stands and the 0.0040 does not survive, so "matched" stands at
+both widths and "beat" does not, as posed; on no reading does the fine-tuned
+partner's bridge keep more with an interval clear of zero. The document in the
+partner's weights was not what the channel carried; it entered through the
+self-distillation teacher's context.
 
 **The partner control, at 9B.** The full-width twin against the plain
 Qwen2.5-0.5B-Instruct partner (`allplain`; landed 2026-09-21 23:01) is the
@@ -184,9 +193,10 @@ over the constitution channel from 16× to 15×, and the KL selectivity from
 48/119/302× to 48/120/308×. An audit of the paper's 169 KL-derived numbers found
 no claim that changes.
 
-**What the channel reads, and what its fit measures (2026-09-28 and 29).** Two
-measurements made after the campaign, and two experiments with criteria committed
-before they ran (paper, Section 10; ΨLM `results/constitution/prereg_verdict.json`).
+**What the channel reads, and what its fit measures (2026-09-28 to 30).** Two
+measurements made after the campaign, and four tests with criteria committed
+before they ran (paper, Section 10; ΨLM `results/constitution/prereg_verdict.json`,
+`stored_tokens_criteria.json` and `tempcontrol_qwen0.5b_preregistration.json`).
 
 - *The write does not depend on what was read.* Teacher-forced, giving the trained
   full-width bridge another prompt's tokens moves the output by a KL of 0.00032,
@@ -194,9 +204,10 @@ before they ran (paper, Section 10; ΨLM `results/constitution/prereg_verdict.js
   A partner fed zeros: 0.0014. Twelve of the thirteen single-channel 9B arms
   behave this way (0.0002 to 0.0014 against 0.002 to 0.070); matched random 205
   is the exception (up to 0.0029). At 0.5B the prompt's own tokens matter:
-  another prompt's move the output by 0.035 of the write's 0.222. What tells a
+  another prompt's move the output by 0.035 of the write's 0.222, and one stored
+  set does not stand in for the partner there (below). What tells a
   red-team prompt from an arithmetic one is the gate: 0.48 against 0.014.
-- *Most of the fit is sharpening.* With the backbone and the coupled system each
+- *At 9B most of the fit is sharpening.* With the backbone and the coupled system each
   read at its own best temperature (cross-fitted), 0.0403 of full width's red-team
   gain of 0.0939 is left (0.028 to 0.058) and 0.0041 of 0.0576 on helpful prompts
   (interval includes zero, as for every arm). Narrow arms keep 0.012 or less. The
@@ -205,13 +216,78 @@ before they ran (paper, Section 10; ΨLM `results/constitution/prereg_verdict.js
   red-team and helpful splits (the validation split was not scored again). The
   masked writes at the default cap keep nothing (-0.0014 and 0.0012), so their
   efficiency per unit of energy and their "manner" were sharpening too. By KL to
-  the teacher's own distribution no arm moves measurably toward the teacher
-  (backbone 0.140, arms 0.144 to 0.227). Not run at 0.5B.
+  the teacher's own distribution no 9B arm moves measurably toward the teacher
+  (backbone 0.140, arms 0.144 to 0.227).
+- *The temperature control at 0.5B (pre-registered, 2026-09-30).* Nine bridges,
+  100 red-team and 100 helpful prompts, the same grid of temperatures. The rules
+  were committed before anything was measured (ΨLM `32aee47`); they read the
+  red-team prompts with each side at its best temperature on the helpful ones,
+  and report the helpful prompts beside. Differences are of gains (positive
+  where the first arm is the better), the opposite sign to the cross-entropy
+  differences quoted above. As the rules read it the full-width write **keeps a
+  gain**, 0.3734 (0.285 to 0.507) of 0.3587; reported beside the reading, it
+  keeps 0.3436 at the red-team prompts' own best temperatures, and on helpful
+  prompts 0.1422 of 0.1974 (0.093 to 0.204) and 0.1177 at their own best, so
+  (described, not read) 28% to 40% of that gain is sharpening.
+  The nine value neurons' small signal **survives** (0.0081, 0.0034 to 0.0453, of
+  0.0182; on helpful prompts −0.0053, −0.0090 to 0.0133, and 0.0055 at their own
+  best temperatures).
+  The plain partner's advantage of 0.0040 **does not survive** (plain minus
+  fine-tuned, 0.0054, −0.0009 to 0.0123). The full-width partner null is **still
+  indistinguishable** (plain minus fine-tuned, −0.0047, −0.038 to 0.021).
+  The identity sign is **not firm**: the value neurons against the mean of three
+  matched draws are at −0.0067 (−0.012 to 0.030), from +0.0068 as evaluated, and
+  the 63%/37% split is labelled "identity term not distinguishable from zero at
+  best temperature" (magnitude share 1.83, 0.30 to 4.42).
+  Value neurons against nine random coordinates survive on the edge (0.0046,
+  0.0001 to 0.0418; two other bootstrap seeds put zero inside). Width survives
+  (0.047, 0.030 to 0.089).
+  By KL to the teacher's distribution at temperature 1 the full-width write is
+  further from the teacher than the backbone (0.503 against 0.447; 0.423 against
+  0.236 on helpful prompts); at the best temperatures for that distance it
+  removes 21% of the backbone's on red-team prompts and adds 16% on helpful ones.
+  Three independent recomputations reproduce every label of the readings and
+  every six-decimal number of the table to within 0.000001.
+- *What was wrong with those rules at 0.5B (worked out after the run; no reading
+  changed).* The two sets of prompts disagree about the best temperature (0.80
+  for the backbone on red-team prompts, 0.65 on helpful ones; 0.60 on both at
+  9B), so the cross-fit costs the backbone 0.033 and 0.026 of cross-entropy,
+  where the largest nine-coordinate gain as evaluated is 0.022. Between 84% and
+  96% of the variance of a nine-coordinate write's bootstrap draws lies between
+  the pairs of temperatures chosen. The plain partner's advantage is positive on
+  every reading (0.0040 to 0.0068 with both sides at one temperature from 0.50
+  to 1.00, clear of zero from 0.70 up; 0.0044, 0.0003 to 0.0092, at the prompts'
+  own best). The identity term changes sign with the temperature: −0.0136 at
+  0.50, −0.0067 (−0.011 to −0.003) at 0.65, +0.0068 at 1.00, and −0.0007 (−0.003
+  to 0.002) at the prompts' own best. Files: ΨLM
+  `results/constitution/tempcontrol_qwen0.5b_{reading,beside,recomputation}.json`,
+  `arms_controls_qwen0.5b.json`.
 - *Stored tokens (pre-registered).* The full-width bridge fed one stored set of
   tokens for every prompt, 400 prompts, adjudicated blind: the mean of 100
   validation prompts' tokens 21:3 (p 0.0003), **survived**; the tokens of a
-  partner fed zeros 13:5 (p 0.096), **partial**. The recorded arm is 21:2. Shown
-  for the full-width arm on the red-team prompts only.
+  partner fed zeros 13:5 (p 0.096), **partial**. The recorded arm is 21:2.
+- *Stored tokens on the benchmarks (pre-registered, 2026-09-29 and 30).* By
+  criteria written before the runs (ΨLM
+  `results/constitution/stored_tokens_criteria.json`), each a tolerance, the
+  stored mean set **stands in** for the partner's path at 9B: GSM8K 86, MMLU 75,
+  BoolQ 90 correct of 100 against 84, 75, 89 (GSM8K one item lost and three
+  gained, p = 0.63); teacher-forced KL to the trained system 0.0003 and 0.0003
+  (limits 0.0033 and 0.0021); KL from the stock model on red-team prompts 0.1047
+  against 0.1044; keyword refusals 71 against 72 of 100, one prompt differing;
+  61 of the 100 red-team replies the same text, and 81, 99 and 99 of the
+  benchmark replies. At 0.5B that bridge's own stored set **does not**
+  (teacher-forced KL 0.026 where the limit is 0.005; 13 of 100 keyword decisions
+  differ; its benchmark and divergence criteria are met). What the verdict
+  cannot show: the criterion on the gate is no evidence, since the gate reads
+  the backbone's stream and not the tokens (at 0.5B it is not met, and that
+  bridge's gate is above 0.01 on MMLU and BoolQ with its partner too); the 9B
+  red-team part repeats what was known (those 100 prompts are among the 400);
+  and the zero-fed set, which carries only the weaker copy, is inside every
+  tolerance it was measured against (teacher-forced KL 0.0014 and 0.0008; on the
+  400 prompts a divergence from the stock model 1.10 times the partner path's
+  and 3 keyword decisions differing; its benchmarks were not run), so only the
+  adjudication tells the two sets apart. Only the full-width bridges were
+  tested. The 9B set is published beside its bridge on Hugging Face.
 - *No partner (pre-registered).* The full-width recipe trained with a constant in
   place of the partner: keyword 20:4, adjudicated 14:2 (p 0.0042), cross-entropy
   and guard-rail within the bounds: **match**, with the adjudicated criterion (at
@@ -228,11 +304,12 @@ before they ran (paper, Section 10; ΨLM `results/constitution/prereg_verdict.js
   then returned every label; the labels are kept and no verdict changes with
   their pairs left out. Every judge read its own file and nothing else.
 
-## Running (as of 2026-09-29)
+## Running (as of 2026-09-30)
 
 - nothing for this paper. Every arm has landed, every KL has been recomputed
-  under the corrected read (above), and the follow-up of 2026-09-28 and 29 has
-  its verdicts. The narrow plain-partner twins (`vn1eplain`,
+  under the corrected read (above), the follow-up of 2026-09-28 and 29 has
+  its verdicts, and so have the temperature control at 0.5B and the stored
+  tokens on the benchmarks. The narrow plain-partner twins (`vn1eplain`,
   `vn5eplain`) were dropped at 23:09 on 2026-09-21, because the full-width twin
   left them no question to answer (`results/qwen35/plainpartner_widths.sh`
   reinstates them).
@@ -240,26 +317,43 @@ before they ran (paper, Section 10; ΨLM `results/constitution/prereg_verdict.js
   Bonsai 2 27B for the PsiLM-chat app (`results/bonsai/`, 2026-09-24). Its
   cross-entropy gain (0.4255 to 0.2992) is sharpening in full: read at its best
   temperature the backbone reaches 0.263, the coupled system 0.263; and the
-  write is independent of the prompt to a KL of 0.00007 against 0.0856.
+  write is independent of the prompt to a KL of 0.00007 against 0.0856. By the
+  stored-token criteria a stored set stands in for its partner too
+  (teacher-forced KL 0.00003 and 0.00004; GSM8K 85, MMLU 58 and BoolQ 89 of 100
+  under both; keyword refusals 68 against 67, one prompt differing); no
+  withholding was measured there for a stored set to reproduce.
 
 ## What none of it establishes
 
 - That a narrow, auditable write can carry a disposition: at the default cap it
   did not; at matched energy 410 coordinates carry most of the wide write's fit
+  as evaluated (of the part no temperature gives the backbone, 0.0073 of 0.0403)
   and a weaker copy of its withholding, and 41 and 205 carry half to 58% of the
-  fit and a still weaker copy (10:4, 10:6, neither significant on 400 prompts)
+  fit as evaluated and a still weaker copy (10:4, 10:6, neither significant on 400 prompts)
   in the same direction on largely the same prompts, releasing nothing harmful.
 - That the constitution partner contributes anything at 9B beyond being a
-  carrier: the 0.5B control says it does not, and the 9B control at full width
+  carrier: the 0.5B control says it does not (as "matched", at best temperature
+  too; its "beat" at nine coordinates did not survive), and the 9B control at full width
   says the same on fit, keyword count and adjudicated substance (19:3 against
   the fine-tuned partner's 21:2, fifteen pairs shared). The follow-up goes
   further: the write does not read the carrier's cargo, and a bridge trained
   with no partner withholds on 14 pairs against 2 in each of two runs. Whether
   the partner adds the difference to 16 and 21 is unresolved with two runs a
   recipe.
-- That cross-entropy against the teacher measures nearness to the teacher: most
-  of it is confidence, and by divergence from the teacher's distribution no arm
-  moves toward it. Every "fit" in the paper is the fit as evaluated.
+- That a stored set which "stands in" carries the withholding: the tolerances
+  pass a set that carries only a weaker copy of it, and only the adjudication
+  (21:3 against 13:5) tells them apart. Nor anything beyond single-turn prompts,
+  greedy decoding, the system prompt the bridge was trained under, and the
+  full-width bridges.
+- That cross-entropy against the teacher measures nearness to the teacher: at 9B
+  most of it is confidence, and by divergence from the teacher's distribution no
+  9B arm moves toward it. At 0.5B most of the full-width gain survives the
+  control, while at temperature 1 the full-width write is still further from the
+  teacher's distribution than the backbone is. Every "fit" in the paper is the
+  fit as evaluated unless it says otherwise.
+- That the probe's coordinates fit the teacher better than matched ones at 0.5B:
+  the identity term is there at temperature 1 and not at the temperatures that
+  are best for the prompts.
 - That any of this is alignment in a useful sense: what the channel carries, on
   the evidence so far, is a blunter refusal paid for mostly in helpfulness, with
   a hundredfold divergence on multiple-choice reasoning when it writes into the

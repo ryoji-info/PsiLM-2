@@ -9,7 +9,9 @@ partners coexist. Builds with `latexmk -pdf psilm2.tex`.
 physics model, which is where this interface comes from. Its home is the
 [PsiLM](https://github.com/ryoji-info/PsiLM) repository; the copy here is vendored so
 the two build against one `refs.bib` and one `figs/`, and it is cited as
-`furui2026psilm` rather than extended. **Do not revise it here** — revise it in PsiLM.
+`furui2026psilm` rather than extended. **Do not revise it here** — revise it in PsiLM
+and copy it over. (Two corrections of 2026-09-23 and 24 were made here first; since
+2026-09-30 the two copies are the same file again.)
 
 Both share `refs.bib`.
 

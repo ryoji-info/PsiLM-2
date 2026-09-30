@@ -56,18 +56,21 @@ companion physics paper is [`paper/psilm.pdf`](paper/psilm.pdf).
 4. **Two bridges of different kinds compose on one backbone without joint
    training, and joint training makes the composition worse.** Neither channel
    costs the other its payload (physics accuracy stays at 1.000, and joint
-   training costs constitution cross-entropy without buying anything); the
-   composition is not inert on the backbone (MMLU divergence 0.072 where the
+   training costs constitution cross-entropy without buying anything; that
+   cross-entropy is as evaluated, and the temperature control of finding 5 was
+   not run on the dual stack); the composition is not inert on the backbone (MMLU divergence 0.072 where the
    constitution channel alone stayed at 0.005 and the physics channel alone sits
    at 0.041, with no significant accuracy change: MMLU 75 → 77, 3:1, p = 0.63).
 
-5. **Most of the cross-entropy gain is sharpening, and at 9B the write does not
-   depend on what the channel read.** Two controls made after the campaign, and
-   two experiments with criteria committed before they ran. With the backbone and
-   the coupled system each read at its own best temperature, 0.040 of full
-   width's red-team gain of 0.094 is left and the narrow writes keep 0.012 or
-   less; by divergence from the teacher's own distribution no arm moves
-   measurably toward the teacher. Another prompt's tokens move the full-width
+5. **At 9B most of the cross-entropy gain is sharpening, and the write does not
+   depend on what the channel read; at 0.5B most of the full-width gain is not
+   sharpening, and the write does use what it reads.** Two controls made
+   after the campaign, and four tests with criteria committed before they ran.
+   At 9B, with the backbone and the coupled system each read at its own best
+   temperature, 0.040 of full width's red-team gain of 0.094 is left and the
+   narrow writes keep 0.012 or less; by divergence from the teacher's own
+   distribution no 9B arm moves measurably toward the teacher. Another prompt's
+   tokens move the full-width
    output by a KL of 0.0003 where the write itself moves it by 0.065. The
    full-width bridge fed one stored set of tokens for every prompt (the mean of
    100 other prompts') reproduces the withholding, 21:3; a set made from no
@@ -76,6 +79,41 @@ companion physics paper is [`paper/psilm.pdf`](paper/psilm.pdf).
    partner give 21 and 16; two runs a recipe do not settle whether the partner
    adds the difference. No adjudicated count of findings 3 and 4 moves; every
    "fit" in them is the fit as evaluated.
+
+   *The stored set on the benchmarks (2026-09-29 and 30).* By criteria written
+   before the runs, that stored set stands in for the partner's path at 9B:
+   GSM8K 86, MMLU 75 and BoolQ 90 correct of 100 where the partner's path has
+   84, 75 and 89; teacher-forced, a KL to the trained system of 0.0003; 71
+   keyword refusals of 100 against 72, one prompt differing. At 0.5B, where the
+   write uses what it reads, that bridge's own stored set does not stand in
+   (teacher-forced KL 0.026; 13 of 100 keyword decisions differ; its benchmark
+   answers stay within the tolerance). The tolerances do not measure the
+   withholding: the set made from no prompt, which carries only the weaker
+   copy, is inside every one it was measured against. A criterion on the gate
+   is no evidence either, because the gate does not read the tokens: at 0.5B
+   it is not met, and the gate there is above its limit with the partner too.
+   The 9B red-team part repeats what was known; what the test added is the
+   benchmarks. The 9B set is published beside its bridge.
+
+   *The temperature control at 0.5B (2026-09-30).* Read by rules committed
+   before it ran, on the red-team prompts: the full-width write keeps a gain,
+   and, described beside the reading (the rules set no threshold), most of it
+   is not sharpening: 0.373 is left of 0.359 (95% 0.285 to 0.507), and on the
+   helpful prompts 0.142 of 0.197, or 0.118 at those prompts' own best
+   temperatures, so between 28% and 40% of that gain is. On the red-team
+   prompts the nine value neurons keep a gain (0.0081 of 0.0182; on the
+   helpful prompts none distinguishable from zero). The plain partner's
+   advantage of 0.0040 does not survive (0.0054, −0.0009 to 0.0123, as a
+   difference of gains), and neither does the identity term (−0.0067, −0.012
+   to 0.030, from +0.0068 as evaluated), so the split into 63% magnitude and
+   37% identity is not stated as a split at best temperature. The full-width
+   partner null stands. Worked out after the run, the nine-coordinate readings
+   are weak ones: the two sets of prompts disagree about the best temperature
+   (0.80 against 0.65 for the backbone), which costs the backbone more
+   cross-entropy than any nine-coordinate write gains, and the identity term
+   changes sign with the temperature both sides are read at. On no reading
+   does the fine-tuned partner's bridge keep more than the plain partner's
+   with an interval clear of zero.
 
 [docs/status.md](docs/status.md) records every measurement, what is still
 running, and what none of it establishes. Read it before treating anything here
@@ -105,7 +143,7 @@ imports.
 | where | what |
 |---|---|
 | [ryoji-info/Qwen3.5-9B-PsiLM](https://huggingface.co/ryoji-info/Qwen3.5-9B-PsiLM) | the NVFP4 backbone and the physics bridge |
-| [ryoji-info/PsiLM-2](https://huggingface.co/ryoji-info/PsiLM-2) | the constitution partner model, every trained constitution bridge (9B and 0.5B), the physics bridge in the same layout, and the guard-rail task caches |
+| [ryoji-info/PsiLM-2](https://huggingface.co/ryoji-info/PsiLM-2) | the constitution partner model, every trained constitution bridge (9B and 0.5B), the stored tokens with which the full-width 9B bridge runs without the partner (`bridges/qwen3.5-9b/all/tokens.safetensors`, added 2026-09-30), the physics bridge in the same layout, and the guard-rail task caches |
 | [ryoji-info/PsiLM](https://github.com/ryoji-info/PsiLM) | code, data, chains, and every evaluation record (`results/bench/*_summary.json`, `results/constitution/`) |
 
 ## Evaluating it yourself
@@ -114,7 +152,7 @@ imports.
 pip install -U huggingface_hub                      # the `hf` downloader (`hf auth login` first while a repo is still private)
 git clone https://github.com/ryoji-info/PsiLM && git clone https://github.com/ryoji-info/PsiLM-2
 hf download ryoji-info/Qwen3.5-9B-PsiLM --local-dir hub/backbone     # 8 GB: backbone + physics bridge + FNO
-hf download ryoji-info/PsiLM-2 --local-dir hub/psilm2                 # partner, bridges, caches
+hf download ryoji-info/PsiLM-2 --local-dir hub/psilm2                 # partner, bridges, stored tokens, caches
 cd PsiLM && python -m venv .venv && .venv/bin/pip install -e . -e ../PsiLM-2
 # the constitution channel alone, on the recorded 100 items
 .venv/bin/python eval/bench_guardrail.py --tag mine_all --n 100 \
@@ -142,7 +180,17 @@ behaviour rather than by its path, so any copy of the backbone restores it). The
 `base` arm is deterministic and must reproduce the recorded rows item for item;
 `zeroed` must equal `base` to four decimals; `psilm` is the arm under test.
 Compare against `results/bench/const_qwen35_all_guardrail_summary.json` and
-`dual_qwen35_both_guardrail_summary.json` in the ΨLM checkout. Everything runs on
+`dual_qwen35_both_guardrail_summary.json` in the ΨLM checkout.
+
+To score the stored tokens beside the partner's path, run the first command
+under a tag of its own with the arm `fixed` in place of `zeroed`:
+`--tag mine_all_stored --arms base,psilm,fixed --fixed-tokens fixed=../hub/psilm2/bridges/qwen3.5-9b/all/tokens.safetensors`
+(to reuse the `base` and `psilm` rows of `mine_all`, keep its tag and pass
+`--resume`, and only the new arm is generated). `fixed` is then the arm under
+test, and the record is `results/bench/const_qwen35_all_stored_guardrail_summary.json`,
+with the verdict in `results/constitution/stored_tokens_qwen35.json`. The
+[model card](https://huggingface.co/ryoji-info/PsiLM-2#the-full-width-bridge-without-its-partner)
+has the loader that runs the bridge with no partner model. Everything runs on
 one Apple M2 (24 GB); a four-dataset guard-rail takes about four hours. The
 tracked `results/stage2/fno.pt` is the same FNO in torch form and needs
 `pip install -e ".[stage1]"`; rebuilding a task cache from scratch needs
